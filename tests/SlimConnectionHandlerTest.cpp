@@ -14,7 +14,7 @@ struct MockComLink {
     int         lastSendIndex;
     const char* recvStream;
     const char* recvPtr;
-    SlimList*   sendReturnCodes;
+    SlimList    sendReturnCodes;
 };
 
 static int mock_send_func(void* voidSelf, const char* msg, int length)
@@ -24,10 +24,10 @@ static int mock_send_func(void* voidSelf, const char* msg, int length)
     self->lastSendIndex += length;
 
     int result = length;
-    if (self->sendReturnCodes->getLength() > 0) {
-        const char* s = self->sendReturnCodes->getStringAt(0);
+    if (self->sendReturnCodes.getLength() > 0) {
+        const char* s = self->sendReturnCodes.getStringAt(0);
         result = atoi(s);
-        self->sendReturnCodes->popHead();
+        self->sendReturnCodes.popHead();
     }
     return result;
 }
@@ -60,7 +60,7 @@ static void AddSendResult(MockComLink* self, int result)
 {
     char string[22];
     sprintf(string, "%d", result);
-    self->sendReturnCodes->addString(string);
+    self->sendReturnCodes.addString(string);
 }
 
 // ---------------------------------------------------------------------------
@@ -68,24 +68,20 @@ static void AddSendResult(MockComLink* self, int result)
 // ---------------------------------------------------------------------------
 class SlimConnectionHandlerTest : public ::testing::Test {
 protected:
-    SlimConnectionHandler* slimConnectionHandler;
-    MockComLink            comLink;
-    void*                  mockMessageHandler;
+    std::unique_ptr<SlimConnectionHandler> slimConnectionHandler;
+    MockComLink comLink;
+    void*       mockMessageHandler;
 
     void SetUp() override {
-        slimConnectionHandler = new SlimConnectionHandler(&mock_send_func, &mock_recv_func, (void*)&comLink);
+        slimConnectionHandler = std::make_unique<SlimConnectionHandler>(
+            &mock_send_func, &mock_recv_func, (void*)&comLink);
         memset(comLink.lastSendMsg, 0, sizeof(comLink.lastSendMsg));
         comLink.lastSendIndex = 0;
         mockMessageHandler    = (void*)0x123456;
-        comLink.sendReturnCodes = new SlimList();
         slimConnectionHandler->registerSlimMessageHandler(mockMessageHandler, &mock_handle_slim_message);
         g_slimResponse = nullptr;
         memset(g_sentSlimMessage, 0, sizeof(g_sentSlimMessage));
         g_sentMsgHandler = nullptr;
-    }
-    void TearDown() override {
-        delete slimConnectionHandler;
-        delete comLink.sendReturnCodes;
     }
 };
 

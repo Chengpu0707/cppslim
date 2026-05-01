@@ -1,5 +1,6 @@
 #pragma once
 #include "SlimConnectionHandler.h"
+#include <memory>
 
 class StatementExecutor;
 class ListExecutor;
@@ -15,6 +16,6 @@ public:
     int handleConnection(void* comLink, com_func_send_t send, com_func_recv_t recv);
 
 private:
-    StatementExecutor* statementExecutor_;
-    ListExecutor*      listExecutor_;
+    std::unique_ptr<StatementExecutor> statementExecutor_;
+    std::unique_ptr<ListExecutor>      listExecutor_;
 };

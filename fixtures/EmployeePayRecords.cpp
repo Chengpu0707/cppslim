@@ -9,31 +9,12 @@ public:
     explicit EmployeePayRecords(const std::vector<std::string>&) {}
 
     std::string query() {
-        SlimList* id = new SlimList();
-        id->addString("id");
-        id->addString("1");
-
-        SlimList* pay = new SlimList();
-        pay->addString("pay");
-        pay->addString("1000");
-
-        SlimList* record = new SlimList();
-        record->addList(id);
-        record->addList(pay);
-
-        SlimList* records = new SlimList();
-        records->addList(record);
-
-        char* raw = records->serialize();
-        std::string result(raw);
-        SlimList::release(raw);
-
-        delete records;
-        delete record;
-        delete pay;
-        delete id;
-
-        return result;
+        SlimList id, pay, record, records;
+        id.addString("id");      id.addString("1");
+        pay.addString("pay");    pay.addString("1000");
+        record.addList(&id);     record.addList(&pay);
+        records.addList(&record);
+        return records.serialize();
     }
 };
 

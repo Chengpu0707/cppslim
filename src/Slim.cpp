@@ -2,38 +2,31 @@
 #include "SlimList.h"
 #include "StatementExecutor.h"
 #include "ListExecutor.h"
+#include <cstring>
 
 void AddFixtures(StatementExecutor*);
 
+Slim::~Slim() = default;
+
 Slim::Slim()
 {
-    statementExecutor_ = new StatementExecutor();
-    AddFixtures(statementExecutor_);
-    listExecutor_ = new ListExecutor(statementExecutor_);
-}
-
-Slim::~Slim()
-{
-    delete listExecutor_;
-    delete statementExecutor_;
+    statementExecutor_ = std::make_unique<StatementExecutor>();
+    AddFixtures(statementExecutor_.get());
+    listExecutor_ = std::make_unique<ListExecutor>(statementExecutor_.get());
 }
 
 char* Slim::handleMessage(void* voidSelf, char* message)
 {
-    Slim*     self         = static_cast<Slim*>(voidSelf);
-    SlimList* instructions = SlimList::deserialize(message);
-    SlimList* results      = self->listExecutor_->execute(instructions);
-    char*     response     = results->serialize();
-    delete results;
-    delete instructions;
-    return response;
+    Slim* self         = static_cast<Slim*>(voidSelf);
+    auto  instructions = SlimList::deserialize(message);
+    auto  results      = self->listExecutor_->execute(instructions.get());
+    std::string response = results->serialize();
+    return strdup(response.c_str());
 }
 
 int Slim::handleConnection(void* comLink, com_func_send_t send, com_func_recv_t recv)
 {
-    SlimConnectionHandler* conn = new SlimConnectionHandler(send, recv, comLink);
+    auto conn = std::make_unique<SlimConnectionHandler>(send, recv, comLink);
     conn->registerSlimMessageHandler(this, &Slim::handleMessage);
-    int result = conn->run();
-    delete conn;
-    return result;
+    return conn->run();
 }

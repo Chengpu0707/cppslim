@@ -1,66 +1,58 @@
 #pragma once
 #include <string>
+#include <memory>
 
 class SlimList;
 
-// SlimListIterator is both a linked-list node and the iterator handle.
-// Calling advance() on a non-null iterator returns the next node (or nullptr).
-// Always check for nullptr before calling any method: it != nullptr.
 class SlimListIterator {
     friend class SlimList;
 public:
-    SlimListIterator* advance()       const { return next_; }
+    ~SlimListIterator();
+    SlimListIterator* advance()        const { return next_.get(); }
     SlimListIterator* advanceBy(int n) const;
-
     const char* getString() const { return isNull_ ? nullptr : string_.c_str(); }
     SlimList*   getList();
     void        replace(const char* s);
-
 private:
-    SlimListIterator* next_   = nullptr;
-    bool              isNull_ = false;
-    std::string       string_;
-    SlimList*         list_   = nullptr;
+    std::unique_ptr<SlimListIterator> next_;
+    bool        isNull_ = false;
+    std::string string_;
+    std::unique_ptr<SlimList> list_;
 };
 
 class SlimList {
 public:
     SlimList();
-    ~SlimList();
+    ~SlimList() = default;
 
-    // Mutation
     void addString(const char* s);
-    void addList(SlimList* element);
-    void addBuffer(const char* buf, int length);
+    void addList(SlimList*);
+    void addBuffer(const char*, int);
     void popHead();
-    void replaceAt(int index, const char* s);
+    void replaceAt(int, const char*);
 
-    // Query
-    int         getLength()               const { return length_; }
-    bool        equals(const SlimList* other) const;
-    const char* getStringAt(int index)    const;
-    double      getDoubleAt(int index)    const;
-    SlimList*   getListAt(int index)      const;
-    SlimList*   getHashAt(int index)      const;
-    SlimList*   getTailAt(int index)      const;
-    const char* toString()                const; // caller must call SlimList::release()
+    int  getLength() const { return length_; }
+    bool equals(const SlimList* other) const;
 
-    // Iteration
-    SlimListIterator* createIterator() const { return head_; }
+    const char*               getStringAt(int) const;
+    double                    getDoubleAt(int) const;
+    SlimList*                 getListAt(int) const;
+    std::unique_ptr<SlimList> getHashAt(int) const;
+    std::unique_ptr<SlimList> getTailAt(int) const;
+    std::string               toString() const;
 
-    // Serialization  (implemented in SlimListSerializer.cpp)
-    char* serialize()          const;
-    int   serializedLength()   const;
-    static void release(char* serialized);
+    SlimListIterator* createIterator() const { return head_.get(); }
 
-    // Deserialization (implemented in SlimListDeserializer.cpp)
-    static SlimList* deserialize(const char* serialized);
+    std::string serialize() const;
+    int         serializedLength() const;
+
+    static std::unique_ptr<SlimList> deserialize(const char*);
 
 private:
     int               length_ = 0;
-    SlimListIterator* head_   = nullptr;
+    std::unique_ptr<SlimListIterator> head_;
     SlimListIterator* tail_   = nullptr;
 
-    SlimListIterator* getNodeAt(int index) const;
-    void              insertNode(SlimListIterator* node);
+    SlimListIterator* getNodeAt(int) const;
+    void              insertNode(std::unique_ptr<SlimListIterator>);
 };

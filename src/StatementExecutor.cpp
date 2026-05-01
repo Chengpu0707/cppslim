@@ -34,7 +34,7 @@ static void  Null_Destroy(void*) {}
 
 StatementExecutor::StatementExecutor()
 {
-    symbolTable_ = new SymbolTable();
+    symbolTable_ = std::make_unique<SymbolTable>();
 }
 
 StatementExecutor::~StatementExecutor()
@@ -43,7 +43,6 @@ StatementExecutor::~StatementExecutor()
         inst.fixture->destructor(inst.instance);
     for (auto& inst : instances_)
         inst.fixture->destructor(inst.instance);
-    delete symbolTable_;
 }
 
 void StatementExecutor::addFixture(Fixture fixture)
@@ -179,15 +178,13 @@ void StatementExecutor::replaceSymbols(SlimList* list)
     for (auto* it = list->createIterator(); it != nullptr; it = it->advance()) {
         const char* s = it->getString();
         if (s != nullptr) {
-            SlimList* embedded = SlimList::deserialize(s);
+            auto embedded = SlimList::deserialize(s);
             if (!embedded) {
                 it->replace(replaceString(s).c_str());
             } else {
-                replaceSymbols(embedded);
-                char* serial = embedded->serialize();
-                it->replace(serial);
-                delete embedded;
-                SlimList::release(serial);
+                replaceSymbols(embedded.get());
+                std::string serial = embedded->serialize();
+                it->replace(serial.c_str());
             }
         }
     }

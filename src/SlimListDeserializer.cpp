@@ -4,7 +4,7 @@
 #include <string.h>
 
 #define SKIP(a) \
-    if (*cur != (a)) { delete list; return nullptr; } \
+    if (*cur != (a)) { return nullptr; } \
     cur++;
 
 static int readLength(const char** p)
@@ -28,13 +28,13 @@ static int byteLength(int charLen, const char* cur)
     return bytes;
 }
 
-SlimList* SlimList::deserialize(const char* s)
+std::unique_ptr<SlimList> SlimList::deserialize(const char* s)
 {
     if (!s || strlen(s) == 0)
         return nullptr;
 
     const char* cur  = s;
-    SlimList*   list = new SlimList();
+    auto        list = std::make_unique<SlimList>();
 
     SKIP('[')
     int listLen = readLength(&cur);

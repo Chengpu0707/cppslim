@@ -1,5 +1,4 @@
 #include "SlimConnectionHandler.h"
-#include "SlimList.h"
 #include <string>
 #include <cstdio>
 #include <cstdlib>
@@ -51,11 +50,11 @@ int SlimConnectionHandler::run()
             char  lenBuf[8];
             sprintf(lenBuf, "%06d:", responseLength);
             if (sendFunc_(comLink_, lenBuf, 7) == -1) {
-                SlimList::release(response);
+                free(response);
                 break;
             }
             sendFunc_(comLink_, response, responseLength);
-            SlimList::release(response);
+            free(response);
         } else if (size == -1) {
             break;
         }

@@ -8,11 +8,13 @@
 // SlimListIterator
 // ---------------------------------------------------------------------------
 
+SlimListIterator::~SlimListIterator() = default;
+
 SlimListIterator* SlimListIterator::advanceBy(int n) const
 {
     const SlimListIterator* it = this;
     for (int i = 0; i < n && it; ++i)
-        it = it->next_;
+        it = it->next_.get();
     return const_cast<SlimListIterator*>(it);
 }
 
@@ -20,15 +22,12 @@ SlimList* SlimListIterator::getList()
 {
     if (!list_)
         list_ = SlimList::deserialize(string_.c_str());
-    return list_;
+    return list_.get();
 }
 
 void SlimListIterator::replace(const char* s)
 {
-    if (list_) {
-        delete list_;
-        list_ = nullptr;
-    }
+    list_.reset();
     isNull_ = (s == nullptr);
     string_ = s ? s : "";
 }
@@ -39,35 +38,25 @@ void SlimListIterator::replace(const char* s)
 
 SlimList::SlimList() = default;
 
-SlimList::~SlimList()
+void SlimList::insertNode(std::unique_ptr<SlimListIterator> node)
 {
-    SlimListIterator* node = head_;
-    while (node) {
-        SlimListIterator* next = node->advance();
-        delete node->list_;
-        delete node;
-        node = next;
-    }
-}
-
-void SlimList::insertNode(SlimListIterator* node)
-{
+    SlimListIterator* raw = node.get();
     if (length_ == 0)
-        head_ = node;
+        head_ = std::move(node);
     else
-        tail_->next_ = node;
-    tail_ = node;
+        tail_->next_ = std::move(node);
+    tail_ = raw;
     ++length_;
 }
 
 void SlimList::addBuffer(const char* buf, int length)
 {
-    SlimListIterator* node = new SlimListIterator();
+    auto node = std::make_unique<SlimListIterator>();
     if (buf)
         node->string_.assign(buf, static_cast<std::size_t>(length));
     else
         node->isNull_ = true;
-    insertNode(node);
+    insertNode(std::move(node));
 }
 
 void SlimList::addString(const char* s)
@@ -77,28 +66,25 @@ void SlimList::addString(const char* s)
 
 void SlimList::addList(SlimList* element)
 {
-    char* embedded = element->serialize();
-    addString(embedded);
-    SlimList::release(embedded);
+    addString(element->serialize().c_str());
 }
 
 void SlimList::popHead()
 {
     assert(head_ != nullptr);
-    SlimListIterator* prev = head_;
-    head_ = prev->next_;
-    if (tail_ == prev)
+    auto new_head = std::move(head_->next_);
+    if (tail_ == head_.get())
         tail_ = nullptr;
+    head_ = std::move(new_head);
     --length_;
-    delete prev->list_;
-    delete prev;
 }
 
 bool SlimList::equals(const SlimList* other) const
 {
     if (length_ != other->length_)
         return false;
-    for (SlimListIterator *p = head_, *q = other->head_; p; p = p->advance(), q = q->advance())
+    for (SlimListIterator *p = head_.get(), *q = other->head_.get(); p;
+         p = p->advance(), q = q->advance())
         if (p->isNull_ != q->isNull_ || p->string_ != q->string_)
             return false;
     return true;
@@ -108,7 +94,7 @@ SlimListIterator* SlimList::getNodeAt(int index) const
 {
     if (index >= length_)
         return nullptr;
-    SlimListIterator* node = head_;
+    SlimListIterator* node = head_.get();
     for (int i = 0; i < index; ++i)
         node = node->advance();
     return node;
@@ -139,10 +125,10 @@ void SlimList::replaceAt(int index, const char* s)
         node->replace(s);
 }
 
-SlimList* SlimList::getTailAt(int index) const
+std::unique_ptr<SlimList> SlimList::getTailAt(int index) const
 {
-    SlimList* tail = new SlimList();
-    for (auto* it = head_->advanceBy(index); it != nullptr; it = it->advance())
+    auto tail = std::make_unique<SlimList>();
+    for (auto* it = getNodeAt(index); it != nullptr; it = it->advance())
         tail->addString(it->getString());
     return tail;
 }
@@ -157,9 +143,9 @@ static std::string parseHashCell(const char** cellStart)
     return result;
 }
 
-static SlimList* parseHashEntry(const char* row)
+static std::unique_ptr<SlimList> parseHashEntry(const char* row)
 {
-    SlimList* element  = new SlimList();
+    auto element  = std::make_unique<SlimList>();
     const char* start = std::strstr(row, "<td>");
     if (start) {
         std::string key = parseHashCell(&start);
@@ -172,29 +158,26 @@ static SlimList* parseHashEntry(const char* row)
     return element;
 }
 
-SlimList* SlimList::getHashAt(int index) const
+std::unique_ptr<SlimList> SlimList::getHashAt(int index) const
 {
     const char* s = getStringAt(index);
-    SlimList* hash = new SlimList();
+    auto hash = std::make_unique<SlimList>();
     const char* row = std::strstr(s ? s : "", "<tr>");
     while (row) {
-        SlimList* entry = parseHashEntry(row);
-        hash->addList(entry);
-        delete entry;
+        auto entry = parseHashEntry(row);
+        hash->addList(entry.get());
         row = std::strstr(row + 4, "<tr>");
     }
     return hash;
 }
 
-const char* SlimList::toString() const
+std::string SlimList::toString() const
 {
     std::string result = "[";
-    for (auto* it = head_; it != nullptr; it = it->advance()) {
+    for (auto* it = head_.get(); it != nullptr; it = it->advance()) {
         SlimList* sub = it->getList();
         if (sub) {
-            const char* s = sub->toString();
-            result += s;
-            SlimList::release(const_cast<char*>(s));
+            result += sub->toString();
         } else {
             result += '"';
             result += it->getString();
@@ -204,7 +187,5 @@ const char* SlimList::toString() const
             result += ", ";
     }
     result += "]";
-    char* ret = static_cast<char*>(std::malloc(result.size() + 1));
-    std::memcpy(ret, result.c_str(), result.size() + 1);
-    return ret;
+    return result;
 }

@@ -1,5 +1,6 @@
 #pragma once
 #include "SlimList.h"
+#include <memory>
 #include <string>
 #include <vector>
 #include <deque>
@@ -49,7 +50,7 @@ private:
     std::deque<FixtureInfo>  fixtures_;
     std::deque<InstanceInfo> instances_;        // front = most recently created (LIFO)
     std::deque<InstanceInfo> libraryInstances_;
-    SymbolTable*             symbolTable_;
+    std::unique_ptr<SymbolTable> symbolTable_;
     std::string              message_;
     std::string              userMessage_;
 

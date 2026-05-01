@@ -30,9 +30,10 @@ int SlimList::serializedLength() const
     return len;
 }
 
-char* SlimList::serialize() const
+std::string SlimList::serialize() const
 {
-    char* buf = (char*)malloc(serializedLength() + 1);
+    int   totalLen = serializedLength();
+    char* buf = (char*)malloc(totalLen + 1);
     char* wp  = buf;
     wp += sprintf(wp, "[%06d:", getLength());
     for (auto* it = createIterator(); it != nullptr; it = it->advance()) {
@@ -40,10 +41,7 @@ char* SlimList::serialize() const
         wp += sprintf(wp, "%06ld:%s:", fieldLength(s), s);
     }
     strcpy(wp, "]");
-    return buf;
-}
-
-void SlimList::release(char* serialized)
-{
-    free(serialized);
+    std::string result(buf, totalLen);
+    free(buf);
+    return result;
 }

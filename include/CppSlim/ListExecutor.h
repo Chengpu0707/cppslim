@@ -1,11 +1,12 @@
 #pragma once
 #include "SlimList.h"
 #include "StatementExecutor.h"
+#include <memory>
 
 class ListExecutor {
 public:
     explicit ListExecutor(StatementExecutor* executor);
-    SlimList* execute(SlimList* instructions);
+    std::unique_ptr<SlimList> execute(SlimList* instructions);
 
 private:
     StatementExecutor* executor_;
