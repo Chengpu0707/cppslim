@@ -8,8 +8,6 @@
 // SlimListIterator
 // ---------------------------------------------------------------------------
 
-SlimListIterator::~SlimListIterator() = default;
-
 SlimListIterator* SlimListIterator::advanceBy(int n) const
 {
     const SlimListIterator* it = this;
@@ -20,9 +18,12 @@ SlimListIterator* SlimListIterator::advanceBy(int n) const
 
 SlimList* SlimListIterator::getList()
 {
-    if (!list_)
-        list_ = SlimList::deserialize(string_.c_str());
-    return list_.get();
+    if (!list_) {
+        auto parsed = SlimList::deserialize(string_.c_str());
+        if (parsed)
+            list_ = std::move(*parsed);
+    }
+    return list_ ? &*list_ : nullptr;
 }
 
 void SlimListIterator::replace(const char* s)
@@ -47,11 +48,13 @@ SlimList::SlimList(SlimList&& other) noexcept
 
 SlimList& SlimList::operator=(SlimList&& other) noexcept
 {
-    length_ = other.length_;
-    head_   = std::move(other.head_);
-    tail_   = other.tail_;
-    other.length_ = 0;
-    other.tail_   = nullptr;
+    if (this != &other) {
+        length_ = other.length_;
+        head_   = std::move(other.head_);
+        tail_   = other.tail_;
+        other.length_ = 0;
+        other.tail_   = nullptr;
+    }
     return *this;
 }
 

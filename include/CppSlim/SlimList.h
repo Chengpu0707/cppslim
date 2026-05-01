@@ -1,24 +1,9 @@
 #pragma once
 #include <string>
 #include <memory>
+#include <optional>
 
-class SlimList;
-
-class SlimListIterator {
-    friend class SlimList;
-public:
-    ~SlimListIterator();
-    SlimListIterator* advance()        const { return next_.get(); }
-    SlimListIterator* advanceBy(int n) const;
-    const char* getString() const { return isNull_ ? nullptr : string_.c_str(); }
-    SlimList*   getList();
-    void        replace(const char* s);
-private:
-    std::unique_ptr<SlimListIterator> next_;
-    bool        isNull_ = false;
-    std::string string_;
-    std::unique_ptr<SlimList> list_;
-};
+class SlimListIterator;
 
 class SlimList {
 public:
@@ -53,10 +38,26 @@ public:
     static std::unique_ptr<SlimList> deserialize(const char*);
 
 private:
-    int               length_ = 0;
-    std::unique_ptr<SlimListIterator> head_;
-    SlimListIterator* tail_   = nullptr;
+    int                                length_ = 0;
+    std::unique_ptr<SlimListIterator>  head_;
+    SlimListIterator*                  tail_   = nullptr;
 
     SlimListIterator* getNodeAt(int) const;
     void              insertNode(std::unique_ptr<SlimListIterator>);
+};
+
+class SlimListIterator {
+    friend class SlimList;
+public:
+    ~SlimListIterator() = default;
+    SlimListIterator* advance()        const { return next_.get(); }
+    SlimListIterator* advanceBy(int n) const;
+    const char* getString() const { return isNull_ ? nullptr : string_.c_str(); }
+    SlimList*   getList();
+    void        replace(const char* s);
+private:
+    std::unique_ptr<SlimListIterator> next_;
+    bool                    isNull_ = false;
+    std::string             string_;
+    std::optional<SlimList> list_;
 };
