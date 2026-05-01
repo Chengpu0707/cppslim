@@ -38,6 +38,23 @@ void SlimListIterator::replace(const char* s)
 
 SlimList::SlimList() = default;
 
+SlimList::SlimList(SlimList&& other) noexcept
+    : length_(other.length_), head_(std::move(other.head_)), tail_(other.tail_)
+{
+    other.length_ = 0;
+    other.tail_   = nullptr;
+}
+
+SlimList& SlimList::operator=(SlimList&& other) noexcept
+{
+    length_ = other.length_;
+    head_   = std::move(other.head_);
+    tail_   = other.tail_;
+    other.length_ = 0;
+    other.tail_   = nullptr;
+    return *this;
+}
+
 void SlimList::insertNode(std::unique_ptr<SlimListIterator> node)
 {
     SlimListIterator* raw = node.get();
@@ -125,11 +142,11 @@ void SlimList::replaceAt(int index, const char* s)
         node->replace(s);
 }
 
-std::unique_ptr<SlimList> SlimList::getTailAt(int index) const
+SlimList SlimList::getTailAt(int index) const
 {
-    auto tail = std::make_unique<SlimList>();
+    SlimList tail;
     for (auto* it = getNodeAt(index); it != nullptr; it = it->advance())
-        tail->addString(it->getString());
+        tail.addString(it->getString());
     return tail;
 }
 
@@ -143,29 +160,29 @@ static std::string parseHashCell(const char** cellStart)
     return result;
 }
 
-static std::unique_ptr<SlimList> parseHashEntry(const char* row)
+static SlimList parseHashEntry(const char* row)
 {
-    auto element  = std::make_unique<SlimList>();
+    SlimList element;
     const char* start = std::strstr(row, "<td>");
     if (start) {
         std::string key = parseHashCell(&start);
-        element->addString(key.c_str());
+        element.addString(key.c_str());
         if (start) {
             std::string val = parseHashCell(&start);
-            element->addString(val.c_str());
+            element.addString(val.c_str());
         }
     }
     return element;
 }
 
-std::unique_ptr<SlimList> SlimList::getHashAt(int index) const
+SlimList SlimList::getHashAt(int index) const
 {
     const char* s = getStringAt(index);
-    auto hash = std::make_unique<SlimList>();
+    SlimList hash;
     const char* row = std::strstr(s ? s : "", "<tr>");
     while (row) {
-        auto entry = parseHashEntry(row);
-        hash->addList(entry.get());
+        SlimList entry = parseHashEntry(row);
+        hash.addList(&entry);
         row = std::strstr(row + 4, "<tr>");
     }
     return hash;

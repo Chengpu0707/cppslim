@@ -36,8 +36,8 @@ static std::string doMake(StatementExecutor* executor, SlimList* instruction)
 {
     const char* instanceName = instruction->getStringAt(2);
     const char* className    = instruction->getStringAt(3);
-    auto args = instruction->getTailAt(4);
-    return nullsafe(executor->make(instanceName, className, args.get()));
+    SlimList args = instruction->getTailAt(4);
+    return nullsafe(executor->make(instanceName, className, &args));
 }
 
 static std::string doCall(StatementExecutor* executor, SlimList* instruction)
@@ -46,8 +46,8 @@ static std::string doCall(StatementExecutor* executor, SlimList* instruction)
         return malformedInstruction(instruction);
     const char* instanceName = instruction->getStringAt(2);
     const char* methodName   = instruction->getStringAt(3);
-    auto args = instruction->getTailAt(4);
-    return nullsafe(executor->call(instanceName, methodName, args.get()));
+    SlimList args = instruction->getTailAt(4);
+    return nullsafe(executor->call(instanceName, methodName, &args));
 }
 
 static std::string doCallAndAssign(StatementExecutor* executor, SlimList* instruction)
@@ -57,8 +57,8 @@ static std::string doCallAndAssign(StatementExecutor* executor, SlimList* instru
     const char* symbolName   = instruction->getStringAt(2);
     const char* instanceName = instruction->getStringAt(3);
     const char* methodName   = instruction->getStringAt(4);
-    auto args = instruction->getTailAt(5);
-    std::string result = nullsafe(executor->call(instanceName, methodName, args.get()));
+    SlimList args = instruction->getTailAt(5);
+    std::string result = nullsafe(executor->call(instanceName, methodName, &args));
     executor->setSymbol(symbolName, result.c_str());
     return result;
 }
@@ -74,14 +74,14 @@ static std::string dispatch(StatementExecutor* executor, SlimList* instruction)
     return invalidCommand(instruction);
 }
 
-std::unique_ptr<SlimList> ListExecutor::execute(SlimList* instructions)
+SlimList ListExecutor::execute(SlimList* instructions)
 {
-    auto results = std::make_unique<SlimList>();
+    SlimList results;
     for (auto* it = instructions->createIterator(); it != nullptr; it = it->advance()) {
         SlimList*   instruction = it->getList();
         const char* id          = instruction->getStringAt(0);
         std::string result      = dispatch(executor_, instruction);
-        addResult(results.get(), id, result);
+        addResult(&results, id, result);
     }
     return results;
 }

@@ -24,6 +24,10 @@ class SlimList {
 public:
     SlimList();
     ~SlimList() = default;
+    SlimList(SlimList&& other) noexcept;
+    SlimList& operator=(SlimList&& other) noexcept;
+    SlimList(const SlimList&) = delete;
+    SlimList& operator=(const SlimList&) = delete;
 
     void addString(const char* s);
     void addList(SlimList*);
@@ -34,12 +38,12 @@ public:
     int  getLength() const { return length_; }
     bool equals(const SlimList* other) const;
 
-    const char*               getStringAt(int) const;
-    double                    getDoubleAt(int) const;
-    SlimList*                 getListAt(int) const;
-    std::unique_ptr<SlimList> getHashAt(int) const;
-    std::unique_ptr<SlimList> getTailAt(int) const;
-    std::string               toString() const;
+    const char* getStringAt(int) const;
+    double      getDoubleAt(int) const;
+    SlimList*   getListAt(int) const;
+    SlimList    getHashAt(int) const;
+    SlimList    getTailAt(int) const;
+    std::string toString() const;
 
     SlimListIterator* createIterator() const { return head_.get(); }
 

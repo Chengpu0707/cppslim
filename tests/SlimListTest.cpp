@@ -63,8 +63,8 @@ TEST_F(SlimListTest, canGetElements)
 TEST_F(SlimListTest, canGetHashWithOneElement)
 {
     slimList.addString("<table><tr><td>name</td><td>bob</td></tr></table>");
-    auto hash            = slimList.getHashAt(0);
-    SlimList* twoElementList = hash->getListAt(0);
+    SlimList hash        = slimList.getHashAt(0);
+    SlimList* twoElementList = hash.getListAt(0);
     EXPECT_STREQ("name", twoElementList->getStringAt(0));
     EXPECT_STREQ("bob",  twoElementList->getStringAt(1));
 }
@@ -72,8 +72,8 @@ TEST_F(SlimListTest, canGetHashWithOneElement)
 TEST_F(SlimListTest, canGetHashWithMultipleElements)
 {
     slimList.addString("<table><tr><td>name</td><td>dough</td></tr><tr><td>addr</td><td>here</td></tr></table>");
-    auto hash            = slimList.getHashAt(0);
-    SlimList* twoElementList = hash->getListAt(1);
+    SlimList hash        = slimList.getHashAt(0);
+    SlimList* twoElementList = hash.getListAt(1);
     EXPECT_STREQ("addr", twoElementList->getStringAt(0));
     EXPECT_STREQ("here", twoElementList->getStringAt(1));
 }
@@ -103,8 +103,8 @@ TEST_F(SlimListTest, canGetTail)
     expected.addString("3");
     expected.addString("4");
 
-    auto tail = slimList.getTailAt(2);
-    EXPECT_TRUE(expected.equals(tail.get()));
+    SlimList tail = slimList.getTailAt(2);
+    EXPECT_TRUE(expected.equals(&tail));
 }
 
 TEST_F(SlimListTest, getDouble)

@@ -30,8 +30,8 @@ protected:
 
 TEST_F(ListExecutorTest, ImportShouldReturnOk)
 {
-    auto results = listExecutor->execute(&instructions);
-    SlimList* importResult = results->getListAt(0);
+    SlimList results = listExecutor->execute(&instructions);
+    SlimList* importResult = results.getListAt(0);
     EXPECT_STREQ("i1", importResult->getStringAt(0));
     EXPECT_STREQ("OK", importResult->getStringAt(1));
 }
@@ -40,9 +40,9 @@ TEST_F(ListExecutorTest, CannotExecuteAnInvalidOperation)
 {
     const char* invalid[] = {"inv1", "Invalid", nullptr};
     addStatementTo(&instructions, invalid);
-    auto results = listExecutor->execute(&instructions);
-    EXPECT_EQ(3, results->getLength());
-    SlimList* invalidResult = results->getListAt(2);
+    SlimList results = listExecutor->execute(&instructions);
+    EXPECT_EQ(3, results.getLength());
+    SlimList* invalidResult = results.getListAt(2);
     EXPECT_STREQ("inv1", invalidResult->getStringAt(0));
     EXPECT_STREQ("__EXCEPTION__:message:<<INVALID_STATEMENT: [\"inv1\", \"Invalid\"].>>",
                  invalidResult->getStringAt(1));
@@ -52,12 +52,12 @@ TEST_F(ListExecutorTest, CanCallASimpleFunction)
 {
     const char* call[] = {"call1", "call", "test_slim", "returnValue", nullptr};
     addStatementTo(&instructions, call);
-    auto results = listExecutor->execute(&instructions);
-    EXPECT_EQ(3, results->getLength());
-    SlimList* makeResult = results->getListAt(1);
+    SlimList results = listExecutor->execute(&instructions);
+    EXPECT_EQ(3, results.getLength());
+    SlimList* makeResult = results.getListAt(1);
     EXPECT_STREQ("m1", makeResult->getStringAt(0));
     EXPECT_STREQ("OK", makeResult->getStringAt(1));
-    SlimList* callResult = results->getListAt(2);
+    SlimList* callResult = results.getListAt(2);
     EXPECT_STREQ("call1", callResult->getStringAt(0));
     EXPECT_STREQ("value", callResult->getStringAt(1));
 }
@@ -66,8 +66,8 @@ TEST_F(ListExecutorTest, CantExecuteMalformedInstruction)
 {
     const char* call[] = {"call1", "call", "notEnoughArguments", nullptr};
     addStatementTo(&instructions, call);
-    auto results = listExecutor->execute(&instructions);
-    SlimList* invalidResult = results->getListAt(2);
+    SlimList results = listExecutor->execute(&instructions);
+    SlimList* invalidResult = results.getListAt(2);
     EXPECT_STREQ("__EXCEPTION__:message:<<MALFORMED_INSTRUCTION [\"call1\", \"call\", \"notEnoughArguments\"].>>",
                  invalidResult->getStringAt(1));
 }
@@ -76,8 +76,8 @@ TEST_F(ListExecutorTest, CantCallAMethodOnAnInstanceThatDoesntExist)
 {
     const char* call[] = {"call1", "call", "noSuchInstance", "method", nullptr};
     addStatementTo(&instructions, call);
-    auto results = listExecutor->execute(&instructions);
-    SlimList* invalidResult = results->getListAt(2);
+    SlimList results = listExecutor->execute(&instructions);
+    SlimList* invalidResult = results.getListAt(2);
     EXPECT_STREQ("__EXCEPTION__:message:<<NO_INSTANCE noSuchInstance.>>",
                  invalidResult->getStringAt(1));
 }
@@ -85,8 +85,8 @@ TEST_F(ListExecutorTest, CantCallAMethodOnAnInstanceThatDoesntExist)
 TEST_F(ListExecutorTest, ShouldRespondToAnEmptySetOfInstructionsWithAnEmptySetOfResults)
 {
     SlimList emptyInstructions;
-    auto results = listExecutor->execute(&emptyInstructions);
-    EXPECT_EQ(0, results->getLength());
+    SlimList results = listExecutor->execute(&emptyInstructions);
+    EXPECT_EQ(0, results.getLength());
 }
 
 TEST_F(ListExecutorTest, CanPassArgumentsToConstructor)
@@ -95,8 +95,8 @@ TEST_F(ListExecutorTest, CanPassArgumentsToConstructor)
     const char* call[]  = {"call1", "call", "test_slim2", "getConstructionArg", nullptr};
     addStatementTo(&instructions, make2);
     addStatementTo(&instructions, call);
-    auto results    = listExecutor->execute(&instructions);
-    SlimList* callResult = results->getListAt(3);
+    SlimList results = listExecutor->execute(&instructions);
+    SlimList* callResult = results.getListAt(3);
     EXPECT_STREQ("ConstructorArgument", callResult->getStringAt(1));
 }
 
@@ -106,9 +106,9 @@ TEST_F(ListExecutorTest, CanCallAFunctionMoreThanOnce)
     const char* call2[] = {"call2", "call", "test_slim", "echo", "Goodbye", nullptr};
     addStatementTo(&instructions, call);
     addStatementTo(&instructions, call2);
-    auto results = listExecutor->execute(&instructions);
-    EXPECT_STREQ("Hello",   results->getListAt(2)->getStringAt(1));
-    EXPECT_STREQ("Goodbye", results->getListAt(3)->getStringAt(1));
+    SlimList results = listExecutor->execute(&instructions);
+    EXPECT_STREQ("Hello",   results.getListAt(2)->getStringAt(1));
+    EXPECT_STREQ("Goodbye", results.getListAt(3)->getStringAt(1));
 }
 
 TEST_F(ListExecutorTest, CanAssignTheReturnValueToASymbol)
@@ -117,9 +117,9 @@ TEST_F(ListExecutorTest, CanAssignTheReturnValueToASymbol)
     const char* call2[] = {"id2", "call",          "test_slim", "echo", "$v",         nullptr};
     addStatementTo(&instructions, call);
     addStatementTo(&instructions, call2);
-    auto results = listExecutor->execute(&instructions);
-    EXPECT_STREQ("xy", results->getListAt(2)->getStringAt(1));
-    EXPECT_STREQ("xy", results->getListAt(3)->getStringAt(1));
+    SlimList results = listExecutor->execute(&instructions);
+    EXPECT_STREQ("xy", results.getListAt(2)->getStringAt(1));
+    EXPECT_STREQ("xy", results.getListAt(3)->getStringAt(1));
 }
 
 TEST_F(ListExecutorTest, CanReplaceMultipleSymbolsInASingleArgument)
@@ -130,9 +130,9 @@ TEST_F(ListExecutorTest, CanReplaceMultipleSymbolsInASingleArgument)
     addStatementTo(&instructions, c1);
     addStatementTo(&instructions, c2);
     addStatementTo(&instructions, c3);
-    auto results = listExecutor->execute(&instructions);
+    SlimList results = listExecutor->execute(&instructions);
     EXPECT_STREQ("name:  Bob Martin $12.23",
-                 results->getListAt(4)->getStringAt(1));
+                 results.getListAt(4)->getStringAt(1));
 }
 
 TEST_F(ListExecutorTest, CanPassAndReturnAList)
@@ -149,8 +149,8 @@ TEST_F(ListExecutorTest, CanPassAndReturnAList)
     statement.addList(&l);
     instructions.addList(&statement);
 
-    auto results    = listExecutor->execute(&instructions);
-    SlimList* callResult = results->getListAt(2);
+    SlimList results = listExecutor->execute(&instructions);
+    SlimList* callResult = results.getListAt(2);
     SlimList* resultList = callResult->getListAt(1);
     EXPECT_TRUE(l.equals(resultList));
 }
@@ -159,8 +159,8 @@ TEST_F(ListExecutorTest, CanReturnNull)
 {
     const char* call[] = {"id1", "call", "test_slim", "null", nullptr};
     addStatementTo(&instructions, call);
-    auto results    = listExecutor->execute(&instructions);
-    SlimList* callResult = results->getListAt(2);
+    SlimList results = listExecutor->execute(&instructions);
+    SlimList* callResult = results.getListAt(2);
     EXPECT_STREQ("null", callResult->getStringAt(1));
 }
 
@@ -179,8 +179,8 @@ TEST_F(ListExecutorTest, CanPassASymbolInAList)
     statement.addList(&l);
     instructions.addList(&statement);
 
-    auto results    = listExecutor->execute(&instructions);
-    SlimList* callResult = results->getListAt(3);
+    SlimList results = listExecutor->execute(&instructions);
+    SlimList* callResult = results.getListAt(3);
     SlimList* resultList = callResult->getListAt(1);
     SlimList expected;
     expected.addString("Bob");

@@ -1,11 +1,9 @@
 #pragma once
 #include "SlimList.h"
-#include <memory>
+#include "SymbolTable.h"
 #include <string>
 #include <vector>
 #include <deque>
-
-class SymbolTable;
 class StatementExecutor;
 
 typedef void        (*Fixture)(StatementExecutor*);
@@ -50,7 +48,7 @@ private:
     std::deque<FixtureInfo>  fixtures_;
     std::deque<InstanceInfo> instances_;        // front = most recently created (LIFO)
     std::deque<InstanceInfo> libraryInstances_;
-    std::unique_ptr<SymbolTable> symbolTable_;
+    SymbolTable  symbolTable_;
     std::string              message_;
     std::string              userMessage_;
 

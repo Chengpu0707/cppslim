@@ -32,10 +32,7 @@ static void  Null_Destroy(void*) {}
 
 // ---------------------------------------------------------------------------
 
-StatementExecutor::StatementExecutor()
-{
-    symbolTable_ = std::make_unique<SymbolTable>();
-}
+StatementExecutor::StatementExecutor() = default;
 
 StatementExecutor::~StatementExecutor()
 {
@@ -126,7 +123,7 @@ void* StatementExecutor::instance(const char* instanceName)
 
 void StatementExecutor::setSymbol(const char* symbol, const char* value)
 {
-    symbolTable_->setSymbol(symbol, value);
+    symbolTable_.setSymbol(symbol, value);
 }
 
 void StatementExecutor::constructorError(const char* message)
@@ -207,7 +204,7 @@ std::string StatementExecutor::replaceStringFrom(const std::string& str, std::si
         ++nameEnd;
     int length = static_cast<int>(nameEnd - dollarPos - 1);
 
-    const char* value = symbolTable_->findSymbol(str.c_str() + dollarPos + 1, length);
+    const char* value = symbolTable_.findSymbol(str.c_str() + dollarPos + 1, length);
     if (value) {
         std::string newStr = str.substr(0, dollarPos) + value + str.substr(nameEnd);
         return replaceStringFrom(newStr, 0);
