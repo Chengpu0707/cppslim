@@ -8,38 +8,30 @@
    typedef int sock_t;
 #endif
 
-struct TcpComLink {
-    sock_t socket;
-};
+TcpComLink::TcpComLink(int socket)
+    : socket_(static_cast<intptr_t>(socket))
+{}
 
-TcpComLink* TcpComLink_Create(int socket)
+int TcpComLink::send(void* voidSelf, const char* msg, int length)
 {
-    return new TcpComLink{static_cast<sock_t>(socket)};
-}
-
-void TcpComLink_Destroy(TcpComLink* self)
-{
-    delete self;
-}
-
-int TcpComLink_send(void* voidSelf, const char* msg, int length)
-{
-    TcpComLink* self = static_cast<TcpComLink*>(voidSelf);
+    TcpComLink* self  = static_cast<TcpComLink*>(voidSelf);
+    sock_t      sock  = static_cast<sock_t>(self->socket_);
     int total = 0;
     while (total < length) {
-        int n = static_cast<int>(send(self->socket, msg + total, length - total, 0));
+        int n = static_cast<int>(::send(sock, msg + total, length - total, 0));
         if (n <= 0) break;
         total += n;
     }
     return total;
 }
 
-int TcpComLink_recv(void* voidSelf, char* buffer, int length)
+int TcpComLink::recv(void* voidSelf, char* buffer, int length)
 {
-    TcpComLink* self = static_cast<TcpComLink*>(voidSelf);
+    TcpComLink* self  = static_cast<TcpComLink*>(voidSelf);
+    sock_t      sock  = static_cast<sock_t>(self->socket_);
     int total = 0;
     while (total < length) {
-        int n = static_cast<int>(recv(self->socket, buffer + total, length - total, 0));
+        int n = static_cast<int>(::recv(sock, buffer + total, length - total, 0));
         if (n <= 0) break;
         total += n;
     }

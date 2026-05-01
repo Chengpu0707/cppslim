@@ -1,52 +1,51 @@
 #include "SlimList.h"
 #include "SlimUtil.h"
-#include "SlimListDeserializer.h"
 #include <stdlib.h>
 #include <string.h>
 
 #define SKIP(a) \
-    if (*current != (a)) { SlimList_Destroy(list); return 0; } \
-    current++;
+    if (*cur != (a)) { delete list; return nullptr; } \
+    cur++;
 
-static int readLength(char const** readPtr)
+static int readLength(const char** p)
 {
-    int length = atoi(*readPtr);
-    *readPtr += 6;
-    return length;
+    int n = atoi(*p);
+    *p += 6;
+    return n;
 }
 
-static int ByteLength(int characterLength, char const* current)
+static int byteLength(int charLen, const char* cur)
 {
-    unsigned char const* p;
+    const unsigned char* p = (const unsigned char*)cur;
     int chars = 0, bytes = 0;
-    for (p = (unsigned char const*)current; chars <= characterLength; p++) {
-        bytes++;
+    for (; chars <= charLen; ++p) {
+        ++bytes;
         if (CSlim_IsCharacter(p) == 1)
-            chars++;
+            ++chars;
     }
-    if (chars > characterLength)
-        bytes--;
+    if (chars > charLen)
+        --bytes;
     return bytes;
 }
 
-SlimList* SlimList_Deserialize(char const* serializedList)
+SlimList* SlimList::deserialize(const char* s)
 {
-    if (serializedList == 0 || strlen(serializedList) == 0)
-        return 0;
+    if (!s || strlen(s) == 0)
+        return nullptr;
 
-    char const* current = serializedList;
-    SlimList* list = SlimList_Create();
+    const char* cur  = s;
+    SlimList*   list = new SlimList();
 
     SKIP('[')
-    int listLength = readLength(&current);
+    int listLen = readLength(&cur);
     SKIP(':')
 
-    while (listLength--) {
-        int characterLength = readLength(&current);
+    while (listLen--) {
+        int charLen = readLength(&cur);
         SKIP(':')
-        int byteLength = ByteLength(characterLength, current);
-        SlimList_AddBuffer(list, current, byteLength);
-        current += byteLength;
+        int bLen = byteLength(charLen, cur);
+        list->addBuffer(cur, bLen);
+        cur += bLen;
         SKIP(':')
     }
 

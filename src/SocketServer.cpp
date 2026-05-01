@@ -9,8 +9,8 @@
 #  define SOCK_ERR      SOCKET_ERROR
 #  define SOCK_CLOSE(s) closesocket(s)
 #  define SOCK_SHUT     SD_SEND
-   static void sock_platform_init()    { WSADATA d; WSAStartup(MAKEWORD(2,2), &d); }
-   static void sock_platform_cleanup() { WSACleanup(); }
+   static void sock_init()    { WSADATA d; WSAStartup(MAKEWORD(2,2), &d); }
+   static void sock_cleanup() { WSACleanup(); }
 #else
 #  include <sys/socket.h>
 #  include <netinet/in.h>
@@ -20,67 +20,59 @@
 #  define SOCK_ERR      (-1)
 #  define SOCK_CLOSE(s) close(s)
 #  define SOCK_SHUT     SHUT_WR
-   static void sock_platform_init()    {}
-   static void sock_platform_cleanup() {}
+   static void sock_init()    {}
+   static void sock_cleanup() {}
 #endif
 
-struct SocketServer {
-    int (*handler)(int) = nullptr;
-    sock_t socket = SOCK_INVALID;
-    int port = 0;
-};
+SocketServer::SocketServer() = default;
 
-SocketServer* SocketServer_Create()
+SocketServer::~SocketServer()
 {
-    return new SocketServer();
-}
-
-void SocketServer_Destroy(SocketServer* self)
-{
-    if (self->socket != SOCK_INVALID) {
-        shutdown(self->socket, SOCK_SHUT);
-        SOCK_CLOSE(self->socket);
+    if (socket_ != -1) {
+        sock_t s = static_cast<sock_t>(socket_);
+        shutdown(s, SOCK_SHUT);
+        SOCK_CLOSE(s);
     }
-    sock_platform_cleanup();
-    delete self;
+    sock_cleanup();
 }
 
-void SocketServer_register_handler(SocketServer* self, int (*handlerFunction)(int))
+void SocketServer::registerHandler(int (*handlerFunction)(int))
 {
-    self->handler = handlerFunction;
+    handler_ = handlerFunction;
 }
 
-int SocketServer_Run(SocketServer* self, char* port_str)
+int SocketServer::run(char* port_str)
 {
-    self->port = atoi(port_str);
-    sock_platform_init();
+    port_ = atoi(port_str);
+    sock_init();
 
-    self->socket = ::socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
-    if (self->socket == SOCK_INVALID) {
+    sock_t s = ::socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+    if (s == SOCK_INVALID) {
         printf("Socket creation failed.\n");
         return -1;
     }
+    socket_ = static_cast<intptr_t>(s);
 
-    struct sockaddr_in serverInf{};
-    serverInf.sin_family      = AF_INET;
-    serverInf.sin_addr.s_addr = INADDR_ANY;
-    serverInf.sin_port        = htons(static_cast<unsigned short>(self->port));
-    if (bind(self->socket, reinterpret_cast<struct sockaddr*>(&serverInf), sizeof(serverInf)) == SOCK_ERR) {
+    struct sockaddr_in addr{};
+    addr.sin_family      = AF_INET;
+    addr.sin_addr.s_addr = INADDR_ANY;
+    addr.sin_port        = htons(static_cast<unsigned short>(port_));
+    if (bind(s, reinterpret_cast<struct sockaddr*>(&addr), sizeof(addr)) == SOCK_ERR) {
         printf("Unable to bind socket!\n");
         return -1;
     }
 
-    listen(self->socket, 1);
-    sock_t clientSock = SOCK_INVALID;
-    while (clientSock == SOCK_INVALID)
-        clientSock = accept(self->socket, nullptr, nullptr);
+    listen(s, 1);
+    sock_t client = SOCK_INVALID;
+    while (client == SOCK_INVALID)
+        client = accept(s, nullptr, nullptr);
 
-    (*self->handler)(static_cast<int>(clientSock));
-    SOCK_CLOSE(clientSock);
+    (*handler_)(static_cast<int>(client));
+    SOCK_CLOSE(client);
 
-    shutdown(self->socket, SOCK_SHUT);
-    SOCK_CLOSE(self->socket);
-    self->socket = SOCK_INVALID;
-    sock_platform_cleanup();
+    shutdown(s, SOCK_SHUT);
+    SOCK_CLOSE(s);
+    socket_ = -1;
+    sock_cleanup();
     return 0;
 }

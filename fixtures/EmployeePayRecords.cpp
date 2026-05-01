@@ -1,10 +1,7 @@
 // Query-table fixture: mirrors cslim's QueryTableExample.c
-// query() builds a nested SlimList, serializes it to a string, and returns it.
-// SlimConvert<std::string> passes the serialized wire-format string straight through.
 #include <string>
 #include <vector>
 #include "SlimList.h"
-#include "SlimListSerializer.h"
 #include "CppFixtures.h"
 
 class EmployeePayRecords : public SlimFixture<EmployeePayRecords> {
@@ -12,30 +9,29 @@ public:
     explicit EmployeePayRecords(const std::vector<std::string>&) {}
 
     std::string query() {
-        // Build: [[["id","1"],["pay","1000"]]]
-        SlimList* id = SlimList_Create();
-        SlimList_AddString(id, "id");
-        SlimList_AddString(id, "1");
+        SlimList* id = new SlimList();
+        id->addString("id");
+        id->addString("1");
 
-        SlimList* pay = SlimList_Create();
-        SlimList_AddString(pay, "pay");
-        SlimList_AddString(pay, "1000");
+        SlimList* pay = new SlimList();
+        pay->addString("pay");
+        pay->addString("1000");
 
-        SlimList* record = SlimList_Create();
-        SlimList_AddList(record, id);
-        SlimList_AddList(record, pay);
+        SlimList* record = new SlimList();
+        record->addList(id);
+        record->addList(pay);
 
-        SlimList* records = SlimList_Create();
-        SlimList_AddList(records, record);
+        SlimList* records = new SlimList();
+        records->addList(record);
 
-        char* raw = SlimList_Serialize(records);
+        char* raw = records->serialize();
         std::string result(raw);
-        SlimList_Release(raw);
+        SlimList::release(raw);
 
-        SlimList_Destroy(records);
-        SlimList_Destroy(record);
-        SlimList_Destroy(pay);
-        SlimList_Destroy(id);
+        delete records;
+        delete record;
+        delete pay;
+        delete id;
 
         return result;
     }

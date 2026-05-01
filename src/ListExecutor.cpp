@@ -1,111 +1,95 @@
 #include "ListExecutor.h"
 #include <string>
 #include <cstring>
-#include <cstdlib>
 
-struct ListExecutor {
-    StatementExecutor* executor;
-};
+ListExecutor::ListExecutor(StatementExecutor* executor)
+    : executor_(executor)
+{}
 
-ListExecutor* ListExecutor_Create(StatementExecutor* executor)
+static void addResult(SlimList* list, const char* id, const std::string& result)
 {
-    return new ListExecutor{executor};
+    SlimList* pair = new SlimList();
+    pair->addString(id);
+    pair->addString(result.c_str());
+    list->addList(pair);
+    delete pair;
 }
 
-void ListExecutor_Destroy(ListExecutor* self)
+static std::string invalidCommand(SlimList* instruction)
 {
-    delete self;
-}
-
-static void AddResult(SlimList* list, const char* id, const std::string& result)
-{
-    SlimList* pair = SlimList_Create();
-    SlimList_AddString(pair, id);
-    SlimList_AddString(pair, result.c_str());
-    SlimList_AddList(list, pair);
-    SlimList_Destroy(pair);
-}
-
-static std::string InvalidCommand(SlimList* instruction)
-{
-    const char* id      = SlimList_GetStringAt(instruction, 0);
-    const char* command = SlimList_GetStringAt(instruction, 1);
+    const char* id  = instruction->getStringAt(0);
+    const char* cmd = instruction->getStringAt(1);
     return std::string("__EXCEPTION__:message:<<INVALID_STATEMENT: [\"")
-        + (id ? id : "") + "\", \"" + (command ? command : "") + "\"].>>";
+        + (id ? id : "") + "\", \"" + (cmd ? cmd : "") + "\"].>>";
 }
 
-static std::string MalformedInstruction(SlimList* instruction)
+static std::string malformedInstruction(SlimList* instruction)
 {
-    const char* s = SlimList_ToString(instruction);
+    const char* s = instruction->toString();
     std::string result = std::string("__EXCEPTION__:message:<<MALFORMED_INSTRUCTION ") + s + ".>>";
-    std::free(const_cast<char*>(s));
+    SlimList::release(const_cast<char*>(s));
     return result;
-}
-
-static std::string Import()
-{
-    return "OK";
 }
 
 static std::string nullsafe(const char* s) { return s ? s : "null"; }
 
-static std::string Make(ListExecutor* self, SlimList* instruction)
+static std::string doImport() { return "OK"; }
+
+static std::string doMake(StatementExecutor* executor, SlimList* instruction)
 {
-    const char* instanceName = SlimList_GetStringAt(instruction, 2);
-    const char* className    = SlimList_GetStringAt(instruction, 3);
-    SlimList*   args         = SlimList_GetTailAt(instruction, 4);
-    std::string result = nullsafe(StatementExecutor_Make(self->executor, instanceName, className, args));
-    SlimList_Destroy(args);
+    const char* instanceName = instruction->getStringAt(2);
+    const char* className    = instruction->getStringAt(3);
+    SlimList*   args         = instruction->getTailAt(4);
+    std::string result = nullsafe(executor->make(instanceName, className, args));
+    delete args;
     return result;
 }
 
-static std::string Call(ListExecutor* self, SlimList* instruction)
+static std::string doCall(StatementExecutor* executor, SlimList* instruction)
 {
-    if (SlimList_GetLength(instruction) < 4)
-        return MalformedInstruction(instruction);
-    const char* instanceName = SlimList_GetStringAt(instruction, 2);
-    const char* methodName   = SlimList_GetStringAt(instruction, 3);
-    SlimList*   args         = SlimList_GetTailAt(instruction, 4);
-    std::string result = nullsafe(StatementExecutor_Call(self->executor, instanceName, methodName, args));
-    SlimList_Destroy(args);
+    if (instruction->getLength() < 4)
+        return malformedInstruction(instruction);
+    const char* instanceName = instruction->getStringAt(2);
+    const char* methodName   = instruction->getStringAt(3);
+    SlimList*   args         = instruction->getTailAt(4);
+    std::string result = nullsafe(executor->call(instanceName, methodName, args));
+    delete args;
     return result;
 }
 
-static std::string CallAndAssign(ListExecutor* self, SlimList* instruction)
+static std::string doCallAndAssign(StatementExecutor* executor, SlimList* instruction)
 {
-    if (SlimList_GetLength(instruction) < 5)
-        return MalformedInstruction(instruction);
-    const char* symbolName   = SlimList_GetStringAt(instruction, 2);
-    const char* instanceName = SlimList_GetStringAt(instruction, 3);
-    const char* methodName   = SlimList_GetStringAt(instruction, 4);
-    SlimList*   args         = SlimList_GetTailAt(instruction, 5);
-    std::string result = nullsafe(StatementExecutor_Call(self->executor, instanceName, methodName, args));
-    StatementExecutor_SetSymbol(self->executor, symbolName, result.c_str());
-    SlimList_Destroy(args);
+    if (instruction->getLength() < 5)
+        return malformedInstruction(instruction);
+    const char* symbolName   = instruction->getStringAt(2);
+    const char* instanceName = instruction->getStringAt(3);
+    const char* methodName   = instruction->getStringAt(4);
+    SlimList*   args         = instruction->getTailAt(5);
+    std::string result = nullsafe(executor->call(instanceName, methodName, args));
+    executor->setSymbol(symbolName, result.c_str());
+    delete args;
     return result;
 }
 
-static std::string Dispatch(ListExecutor* self, SlimList* instruction)
+static std::string dispatch(StatementExecutor* executor, SlimList* instruction)
 {
-    const char* command = SlimList_GetStringAt(instruction, 1);
-    if (!command)                              return InvalidCommand(instruction);
-    if (strcmp(command, "import") == 0)        return Import();
-    if (strcmp(command, "make") == 0)          return Make(self, instruction);
-    if (strcmp(command, "call") == 0)          return Call(self, instruction);
-    if (strcmp(command, "callAndAssign") == 0) return CallAndAssign(self, instruction);
-    return InvalidCommand(instruction);
+    const char* cmd = instruction->getStringAt(1);
+    if (!cmd)                              return invalidCommand(instruction);
+    if (strcmp(cmd, "import") == 0)        return doImport();
+    if (strcmp(cmd, "make") == 0)          return doMake(executor, instruction);
+    if (strcmp(cmd, "call") == 0)          return doCall(executor, instruction);
+    if (strcmp(cmd, "callAndAssign") == 0) return doCallAndAssign(executor, instruction);
+    return invalidCommand(instruction);
 }
 
-SlimList* ListExecutor_Execute(ListExecutor* self, SlimList* instructions)
+SlimList* ListExecutor::execute(SlimList* instructions)
 {
-    SlimList* results = SlimList_Create();
-    SlimListIterator* it = SlimList_CreateIterator(instructions);
-    while (SlimList_Iterator_HasItem(it)) {
-        SlimList*   instruction = SlimList_Iterator_GetList(it);
-        const char* id          = SlimList_GetStringAt(instruction, 0);
-        std::string result      = Dispatch(self, instruction);
-        AddResult(results, id, result);
-        SlimList_Iterator_Advance(&it);
+    SlimList* results = new SlimList();
+    for (auto* it = instructions->createIterator(); it != nullptr; it = it->advance()) {
+        SlimList*   instruction = it->getList();
+        const char* id          = instruction->getStringAt(0);
+        std::string result      = dispatch(executor_, instruction);
+        addResult(results, id, result);
     }
     return results;
 }

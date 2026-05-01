@@ -1,49 +1,39 @@
 #include "Slim.h"
 #include "SlimList.h"
-#include "SlimListDeserializer.h"
-#include "SlimListSerializer.h"
 #include "StatementExecutor.h"
 #include "ListExecutor.h"
 
 void AddFixtures(StatementExecutor*);
 
-struct Slim {
-    StatementExecutor* statementExecutor;
-    ListExecutor*      listExecutor;
-};
-
-Slim* Slim_Create()
+Slim::Slim()
 {
-    Slim* self = new Slim();
-    self->statementExecutor = StatementExecutor_Create();
-    AddFixtures(self->statementExecutor);
-    self->listExecutor = ListExecutor_Create(self->statementExecutor);
-    return self;
+    statementExecutor_ = new StatementExecutor();
+    AddFixtures(statementExecutor_);
+    listExecutor_ = new ListExecutor(statementExecutor_);
 }
 
-void Slim_Destroy(Slim* self)
+Slim::~Slim()
 {
-    ListExecutor_Destroy(self->listExecutor);
-    StatementExecutor_Destroy(self->statementExecutor);
-    delete self;
+    delete listExecutor_;
+    delete statementExecutor_;
 }
 
-char* Slim_HandleMessage(void* voidSelf, char* message)
+char* Slim::handleMessage(void* voidSelf, char* message)
 {
     Slim*     self         = static_cast<Slim*>(voidSelf);
-    SlimList* instructions = SlimList_Deserialize(message);
-    SlimList* results      = ListExecutor_Execute(self->listExecutor, instructions);
-    char*     response     = SlimList_Serialize(results);
-    SlimList_Destroy(results);
-    SlimList_Destroy(instructions);
+    SlimList* instructions = SlimList::deserialize(message);
+    SlimList* results      = self->listExecutor_->execute(instructions);
+    char*     response     = results->serialize();
+    delete results;
+    delete instructions;
     return response;
 }
 
-int Slim_HandleConnection(Slim* self, void* comLink, com_func_send_t send, com_func_recv_t recv)
+int Slim::handleConnection(void* comLink, com_func_send_t send, com_func_recv_t recv)
 {
-    SlimConnectionHandler* connection = SlimConnectionHandler_Create(send, recv, comLink);
-    SlimConnectionHandler_RegisterSlimMessageHandler(connection, self, &Slim_HandleMessage);
-    int result = SlimConnectionHandler_Run(connection);
-    SlimConnectionHandler_Destroy(connection);
+    SlimConnectionHandler* conn = new SlimConnectionHandler(send, recv, comLink);
+    conn->registerSlimMessageHandler(this, &Slim::handleMessage);
+    int result = conn->run();
+    delete conn;
     return result;
 }

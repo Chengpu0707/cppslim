@@ -1,7 +1,5 @@
 #include <gtest/gtest.h>
 #include "SlimList.h"
-#include "SlimListDeserializer.h"
-#include "SlimListSerializer.h"
 
 class SlimListDeserializerTest : public ::testing::Test {
 protected:
@@ -10,104 +8,104 @@ protected:
     char*     serializedList;
 
     void SetUp() override {
-        slimList         = SlimList_Create();
+        slimList         = new SlimList();
         deserializedList = nullptr;
         serializedList   = nullptr;
     }
     void TearDown() override {
-        SlimList_Destroy(slimList);
-        if (deserializedList) SlimList_Destroy(deserializedList);
-        if (serializedList)   SlimList_Release(serializedList);
+        delete slimList;
+        delete deserializedList;
+        SlimList::release(serializedList);
     }
     void check_lists_equal(SlimList* expected, SlimList* actual) {
-        EXPECT_TRUE(SlimList_Equals(expected, actual));
+        EXPECT_TRUE(expected->equals(actual));
     }
 };
 
 TEST_F(SlimListDeserializerTest, deserializeEmptyList)
 {
-    deserializedList = SlimList_Deserialize("[000000:]");
+    deserializedList = SlimList::deserialize("[000000:]");
     EXPECT_NE((SlimList*)nullptr, deserializedList);
-    EXPECT_EQ(0, SlimList_GetLength(deserializedList));
+    EXPECT_EQ(0, deserializedList->getLength());
 }
 
 TEST_F(SlimListDeserializerTest, deserializeNull)
 {
-    EXPECT_EQ((SlimList*)nullptr, SlimList_Deserialize(nullptr));
+    EXPECT_EQ((SlimList*)nullptr, SlimList::deserialize(nullptr));
 }
 
 TEST_F(SlimListDeserializerTest, deserializeEmptyString)
 {
-    EXPECT_EQ((SlimList*)nullptr, SlimList_Deserialize(""));
+    EXPECT_EQ((SlimList*)nullptr, SlimList::deserialize(""));
 }
 
 TEST_F(SlimListDeserializerTest, MissingOpenBracketReturnsNull)
 {
-    EXPECT_EQ((SlimList*)nullptr, SlimList_Deserialize("hello"));
+    EXPECT_EQ((SlimList*)nullptr, SlimList::deserialize("hello"));
 }
 
 TEST_F(SlimListDeserializerTest, MissingClosingBracketReturnsNull)
 {
-    EXPECT_EQ((SlimList*)nullptr, SlimList_Deserialize("[000000:"));
+    EXPECT_EQ((SlimList*)nullptr, SlimList::deserialize("[000000:"));
 }
 
 TEST_F(SlimListDeserializerTest, canDeserializeCanonicalListWithOneElement)
 {
-    SlimList* list = SlimList_Deserialize("[000001:000008:Hi doug.:]");
+    SlimList* list = SlimList::deserialize("[000001:000008:Hi doug.:]");
     ASSERT_NE((SlimList*)nullptr, list);
-    EXPECT_EQ(1, SlimList_GetLength(list));
-    EXPECT_STREQ("Hi doug.", SlimList_GetStringAt(list, 0));
-    SlimList_Destroy(list);
+    EXPECT_EQ(1, list->getLength());
+    EXPECT_STREQ("Hi doug.", list->getStringAt(0));
+    delete list;
 }
 
 TEST_F(SlimListDeserializerTest, canDeserializeWithMultibyteCharacters)
 {
-    SlimList* list = SlimList_Deserialize("[000001:000008:Hi JRÜ€©:]");
+    SlimList* list = SlimList::deserialize("[000001:000008:Hi JRÜ€©:]");
     ASSERT_NE((SlimList*)nullptr, list);
-    EXPECT_EQ(1, SlimList_GetLength(list));
-    EXPECT_STREQ("Hi JRÜ€©", SlimList_GetStringAt(list, 0));
-    SlimList_Destroy(list);
+    EXPECT_EQ(1, list->getLength());
+    EXPECT_STREQ("Hi JRÜ€©", list->getStringAt(0));
+    delete list;
 }
 
 TEST_F(SlimListDeserializerTest, canDeSerializeListWithOneElement)
 {
-    SlimList_AddString(slimList, "hello");
-    serializedList   = SlimList_Serialize(slimList);
-    deserializedList = SlimList_Deserialize(serializedList);
+    slimList->addString("hello");
+    serializedList   = slimList->serialize();
+    deserializedList = SlimList::deserialize(serializedList);
     ASSERT_NE((SlimList*)nullptr, deserializedList);
     check_lists_equal(slimList, deserializedList);
 }
 
 TEST_F(SlimListDeserializerTest, canDeSerializeListWithTwoElements)
 {
-    SlimList_AddString(slimList, "hello");
-    SlimList_AddString(slimList, "bob");
-    serializedList   = SlimList_Serialize(slimList);
-    deserializedList = SlimList_Deserialize(serializedList);
+    slimList->addString("hello");
+    slimList->addString("bob");
+    serializedList   = slimList->serialize();
+    deserializedList = SlimList::deserialize(serializedList);
     ASSERT_NE((SlimList*)nullptr, deserializedList);
     check_lists_equal(slimList, deserializedList);
 }
 
 TEST_F(SlimListDeserializerTest, canAddSubList)
 {
-    SlimList* embedded = SlimList_Create();
-    SlimList_AddString(embedded, "element");
-    SlimList_AddList(slimList, embedded);
-    serializedList   = SlimList_Serialize(slimList);
-    deserializedList = SlimList_Deserialize(serializedList);
-    SlimList* subList = SlimList_GetListAt(deserializedList, 0);
+    SlimList* embedded = new SlimList();
+    embedded->addString("element");
+    slimList->addList(embedded);
+    serializedList   = slimList->serialize();
+    deserializedList = SlimList::deserialize(serializedList);
+    SlimList* subList = deserializedList->getListAt(0);
     check_lists_equal(embedded, subList);
-    SlimList_Destroy(embedded);
+    delete embedded;
 }
 
 TEST_F(SlimListDeserializerTest, getStringWhereThereIsAList)
 {
-    SlimList* embedded = SlimList_Create();
-    SlimList_AddString(embedded, "element");
-    SlimList_AddList(slimList, embedded);
-    serializedList   = SlimList_Serialize(slimList);
-    deserializedList = SlimList_Deserialize(serializedList);
-    const char* string = SlimList_GetStringAt(deserializedList, 0);
-    EXPECT_STREQ("[000001:000007:element:]", string);
-    SlimList_Destroy(embedded);
+    SlimList* embedded = new SlimList();
+    embedded->addString("element");
+    slimList->addList(embedded);
+    serializedList   = slimList->serialize();
+    deserializedList = SlimList::deserialize(serializedList);
+    const char* s = deserializedList->getStringAt(0);
+    EXPECT_STREQ("[000001:000007:element:]", s);
+    delete embedded;
 }

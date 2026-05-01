@@ -2,7 +2,7 @@
 #include "StatementExecutor.h"
 #include "SlimList.h"
 
-typedef struct TestSlim TestSlim;
+struct TestSlim;
 
 void* TestSlim_Create(StatementExecutor* executor, SlimList* args);
 void  TestSlim_Destroy(void*);

@@ -1,9 +1,20 @@
 #pragma once
 #include "SlimConnectionHandler.h"
 
-typedef struct Slim Slim;
+class StatementExecutor;
+class ListExecutor;
 
-Slim*  Slim_Create();
-void   Slim_Destroy(Slim*);
-char*  Slim_HandleMessage(void* self, char* message);
-int    Slim_HandleConnection(Slim* self, void* comLink, com_func_send_t send, com_func_recv_t recv);
+class Slim {
+public:
+    Slim();
+    ~Slim();
+
+    // Static so it can be passed as a handler_func_t callback.
+    static char* handleMessage(void* voidSelf, char* message);
+
+    int handleConnection(void* comLink, com_func_send_t send, com_func_recv_t recv);
+
+private:
+    StatementExecutor* statementExecutor_;
+    ListExecutor*      listExecutor_;
+};

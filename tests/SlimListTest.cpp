@@ -9,221 +9,216 @@ protected:
     SlimList* deserializedList;
 
     void SetUp() override {
-        slimList = SlimList_Create();
+        slimList         = new SlimList();
         deserializedList = nullptr;
     }
     void TearDown() override {
-        SlimList_Destroy(slimList);
-        if (deserializedList)
-            SlimList_Destroy(deserializedList);
+        delete slimList;
+        delete deserializedList;
     }
     void check_lists_equal(SlimList* expected, SlimList* actual) {
-        EXPECT_TRUE(SlimList_Equals(expected, actual));
+        EXPECT_TRUE(expected->equals(actual));
     }
 };
 
 TEST_F(SlimListTest, twoEmptyListsAreEqual)
 {
-    SlimList* list = SlimList_Create();
+    SlimList* list = new SlimList();
     check_lists_equal(slimList, list);
-    SlimList_Destroy(list);
+    delete list;
 }
 
 TEST_F(SlimListTest, twoDifferentLengthListsAreNotEqual)
 {
-    SlimList* list = SlimList_Create();
-    SlimList_AddString(slimList, "hello");
-    EXPECT_FALSE(SlimList_Equals(slimList, list));
-    SlimList_Destroy(list);
+    SlimList* list = new SlimList();
+    slimList->addString("hello");
+    EXPECT_FALSE(slimList->equals(list));
+    delete list;
 }
 
 TEST_F(SlimListTest, twoSingleElementListsWithDifferentElementsAreNotEqual)
 {
-    SlimList* list = SlimList_Create();
-    SlimList_AddString(slimList, "hello");
-    SlimList_AddString(list, "goodbye");
-    EXPECT_FALSE(SlimList_Equals(slimList, list));
-    SlimList_Destroy(list);
+    SlimList* list = new SlimList();
+    slimList->addString("hello");
+    list->addString("goodbye");
+    EXPECT_FALSE(slimList->equals(list));
+    delete list;
 }
 
 TEST_F(SlimListTest, twoIdenticalMultipleElementListsAreEqual)
 {
-    SlimList* list = SlimList_Create();
-    SlimList_AddString(slimList, "hello");
-    SlimList_AddString(slimList, "goodbye");
-    SlimList_AddString(list, "hello");
-    SlimList_AddString(list, "goodbye");
-    EXPECT_TRUE(SlimList_Equals(slimList, list));
-    SlimList_Destroy(list);
+    SlimList* list = new SlimList();
+    slimList->addString("hello");
+    slimList->addString("goodbye");
+    list->addString("hello");
+    list->addString("goodbye");
+    EXPECT_TRUE(slimList->equals(list));
+    delete list;
 }
 
 TEST_F(SlimListTest, twoNonIdenticalMultipleElementListsAreNotEqual)
 {
-    SlimList* list = SlimList_Create();
-    SlimList_AddString(slimList, "hello");
-    SlimList_AddString(slimList, "hello");
-    SlimList_AddString(list, "hello");
-    SlimList_AddString(list, "goodbye");
-    EXPECT_FALSE(SlimList_Equals(slimList, list));
-    SlimList_Destroy(list);
+    SlimList* list = new SlimList();
+    slimList->addString("hello");
+    slimList->addString("hello");
+    list->addString("hello");
+    list->addString("goodbye");
+    EXPECT_FALSE(slimList->equals(list));
+    delete list;
 }
 
 TEST_F(SlimListTest, canGetElements)
 {
-    SlimList_AddString(slimList, "element1");
-    SlimList_AddString(slimList, "element2");
-    EXPECT_STREQ("element1", SlimList_GetStringAt(slimList, 0));
-    EXPECT_STREQ("element2", SlimList_GetStringAt(slimList, 1));
+    slimList->addString("element1");
+    slimList->addString("element2");
+    EXPECT_STREQ("element1", slimList->getStringAt(0));
+    EXPECT_STREQ("element2", slimList->getStringAt(1));
 }
 
 TEST_F(SlimListTest, canGetHashWithOneElement)
 {
-    SlimList_AddString(slimList, "<table><tr><td>name</td><td>bob</td></tr></table>");
-    SlimList* hash = SlimList_GetHashAt(slimList, 0);
-    SlimList* twoElementList = SlimList_GetListAt(hash, 0);
-    EXPECT_STREQ("name", SlimList_GetStringAt(twoElementList, 0));
-    EXPECT_STREQ("bob",  SlimList_GetStringAt(twoElementList, 1));
-    SlimList_Destroy(hash);
+    slimList->addString("<table><tr><td>name</td><td>bob</td></tr></table>");
+    SlimList* hash           = slimList->getHashAt(0);
+    SlimList* twoElementList = hash->getListAt(0);
+    EXPECT_STREQ("name", twoElementList->getStringAt(0));
+    EXPECT_STREQ("bob",  twoElementList->getStringAt(1));
+    delete hash;
 }
 
 TEST_F(SlimListTest, canGetHashWithMultipleElements)
 {
-    SlimList_AddString(slimList, "<table><tr><td>name</td><td>dough</td></tr><tr><td>addr</td><td>here</td></tr></table>");
-    SlimList* hash = SlimList_GetHashAt(slimList, 0);
-    SlimList* twoElementList = SlimList_GetListAt(hash, 1);
-    EXPECT_STREQ("addr", SlimList_GetStringAt(twoElementList, 0));
-    EXPECT_STREQ("here", SlimList_GetStringAt(twoElementList, 1));
-    SlimList_Destroy(hash);
+    slimList->addString("<table><tr><td>name</td><td>dough</td></tr><tr><td>addr</td><td>here</td></tr></table>");
+    SlimList* hash           = slimList->getHashAt(0);
+    SlimList* twoElementList = hash->getListAt(1);
+    EXPECT_STREQ("addr", twoElementList->getStringAt(0));
+    EXPECT_STREQ("here", twoElementList->getStringAt(1));
+    delete hash;
 }
 
 TEST_F(SlimListTest, cannotGetElementThatIsNotThere)
 {
-    SlimList_AddString(slimList, "element1");
-    SlimList_AddString(slimList, "element2");
-    EXPECT_EQ((const char*)0, SlimList_GetStringAt(slimList, 3));
+    slimList->addString("element1");
+    slimList->addString("element2");
+    EXPECT_EQ((const char*)nullptr, slimList->getStringAt(3));
 }
 
 TEST_F(SlimListTest, canReplaceString)
 {
-    SlimList_AddString(slimList, "replaceMe");
-    SlimList_ReplaceAt(slimList, 0, "WithMe");
-    EXPECT_STREQ("WithMe", SlimList_GetStringAt(slimList, 0));
+    slimList->addString("replaceMe");
+    slimList->replaceAt(0, "WithMe");
+    EXPECT_STREQ("WithMe", slimList->getStringAt(0));
 }
 
 TEST_F(SlimListTest, canGetTail)
 {
-    SlimList_AddString(slimList, "1");
-    SlimList_AddString(slimList, "2");
-    SlimList_AddString(slimList, "3");
-    SlimList_AddString(slimList, "4");
+    slimList->addString("1");
+    slimList->addString("2");
+    slimList->addString("3");
+    slimList->addString("4");
 
-    SlimList* expected = SlimList_Create();
-    SlimList_AddString(expected, "3");
-    SlimList_AddString(expected, "4");
+    SlimList* expected = new SlimList();
+    expected->addString("3");
+    expected->addString("4");
 
-    SlimList* tail = SlimList_GetTailAt(slimList, 2);
-    EXPECT_TRUE(SlimList_Equals(expected, tail));
-    SlimList_Destroy(tail);
-    SlimList_Destroy(expected);
+    SlimList* tail = slimList->getTailAt(2);
+    EXPECT_TRUE(expected->equals(tail));
+    delete tail;
+    delete expected;
 }
 
 TEST_F(SlimListTest, getDouble)
 {
-    SlimList_AddString(slimList, "2.3");
-    EXPECT_NEAR(2.3, SlimList_GetDoubleAt(slimList, 0), 0.1);
+    slimList->addString("2.3");
+    EXPECT_NEAR(2.3, slimList->getDoubleAt(0), 0.1);
 }
 
 TEST_F(SlimListTest, ToStringForEmptyList)
 {
-    const char* s = SlimList_ToString(slimList);
+    const char* s = slimList->toString();
     EXPECT_STREQ("[]", s);
-    CSlim_DestroyString(s);
+    SlimList::release(const_cast<char*>(s));
 }
 
 TEST_F(SlimListTest, toStringForSimpleList)
 {
-    SlimList_AddString(slimList, "a");
-    SlimList_AddString(slimList, "b");
-    const char* s = SlimList_ToString(slimList);
+    slimList->addString("a");
+    slimList->addString("b");
+    const char* s = slimList->toString();
     EXPECT_STREQ("[\"a\", \"b\"]", s);
-    CSlim_DestroyString(s);
+    SlimList::release(const_cast<char*>(s));
 }
 
 TEST_F(SlimListTest, toStringDoesNotHaveASideEffectWhichChangesResultsFromPriorCalls)
 {
-    const char* priorString = SlimList_ToString(slimList);
-    SlimList_AddString(slimList, "a");
-    const char* withElement = SlimList_ToString(slimList);
+    const char* priorString = slimList->toString();
+    slimList->addString("a");
+    const char* withElement = slimList->toString();
     EXPECT_FALSE(strcmp(priorString, withElement) == 0);
-    CSlim_DestroyString(priorString);
-    CSlim_DestroyString(withElement);
+    SlimList::release(const_cast<char*>(priorString));
+    SlimList::release(const_cast<char*>(withElement));
 }
 
 TEST_F(SlimListTest, recursiveToString)
 {
-    SlimList_AddString(slimList, "a");
-    SlimList_AddString(slimList, "b");
-    SlimList* sublist = SlimList_Create();
-    SlimList_AddString(sublist, "3");
-    SlimList_AddString(sublist, "4");
-    SlimList_AddList(slimList, sublist);
-    const char* s = SlimList_ToString(slimList);
+    slimList->addString("a");
+    slimList->addString("b");
+    SlimList* sublist = new SlimList();
+    sublist->addString("3");
+    sublist->addString("4");
+    slimList->addList(sublist);
+    const char* s = slimList->toString();
     EXPECT_STREQ("[\"a\", \"b\", [\"3\", \"4\"]]", s);
-    CSlim_DestroyString(s);
-    SlimList_Destroy(sublist);
+    SlimList::release(const_cast<char*>(s));
+    delete sublist;
 }
 
 TEST_F(SlimListTest, toStringForLongList)
 {
     for (int i = 0; i < 128; i++)
-        SlimList_AddString(slimList, "a");
-    const char* s = SlimList_ToString(slimList);
-    CSlim_DestroyString(s);
+        slimList->addString("a");
+    const char* s = slimList->toString();
+    SlimList::release(const_cast<char*>(s));
 }
 
 TEST_F(SlimListTest, CanPopHeadOnListWithOneEntry)
 {
-    SlimList_AddString(slimList, "a");
-    SlimList_PopHead(slimList);
-    EXPECT_EQ(0, SlimList_GetLength(slimList));
+    slimList->addString("a");
+    slimList->popHead();
+    EXPECT_EQ(0, slimList->getLength());
 }
 
 TEST_F(SlimListTest, CanInsertAfterPoppingListWithEntries)
 {
-    SlimList_AddString(slimList, "a");
-    SlimList_AddString(slimList, "a");
-    SlimList_PopHead(slimList);
-    SlimList_PopHead(slimList);
-    SlimList_AddString(slimList, "a");
-    SlimList_AddString(slimList, "a");
-    EXPECT_EQ(2, SlimList_GetLength(slimList));
+    slimList->addString("a");
+    slimList->addString("a");
+    slimList->popHead();
+    slimList->popHead();
+    slimList->addString("a");
+    slimList->addString("a");
+    EXPECT_EQ(2, slimList->getLength());
 }
 
 TEST_F(SlimListTest, iteratorDoesNotHaveAnItemWhenEmpty)
 {
-    SlimListIterator* it = SlimList_CreateIterator(slimList);
-    EXPECT_FALSE(SlimList_Iterator_HasItem(it));
+    EXPECT_EQ(nullptr, slimList->createIterator());
 }
 
 TEST_F(SlimListTest, iteratorHasItem)
 {
-    SlimList_AddString(slimList, "a");
-    SlimListIterator* it = SlimList_CreateIterator(slimList);
-    EXPECT_TRUE(SlimList_Iterator_HasItem(it));
+    slimList->addString("a");
+    EXPECT_NE(nullptr, slimList->createIterator());
 }
 
 TEST_F(SlimListTest, iteratorNext)
 {
-    SlimList_AddString(slimList, "a");
-    SlimListIterator* it = SlimList_CreateIterator(slimList);
-    SlimList_Iterator_Advance(&it);
-    EXPECT_FALSE(SlimList_Iterator_HasItem(it));
+    slimList->addString("a");
+    SlimListIterator* it = slimList->createIterator();
+    EXPECT_EQ(nullptr, it->advance());
 }
 
 TEST_F(SlimListTest, iteratorGetString)
 {
-    const char* contents = "a";
-    SlimList_AddString(slimList, contents);
-    SlimListIterator* it = SlimList_CreateIterator(slimList);
-    EXPECT_STREQ(contents, SlimList_Iterator_GetString(it));
+    slimList->addString("a");
+    SlimListIterator* it = slimList->createIterator();
+    EXPECT_STREQ("a", it->getString());
 }

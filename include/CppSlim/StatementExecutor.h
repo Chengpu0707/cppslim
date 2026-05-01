@@ -1,23 +1,63 @@
 #pragma once
 #include "SlimList.h"
+#include <string>
+#include <vector>
+#include <deque>
 
-typedef struct StatementExecutor StatementExecutor;
-typedef void      (*Fixture)(StatementExecutor*);
-typedef void*     (*Constructor)(StatementExecutor*, SlimList*);
-typedef void      (*Destructor)(void*);
+class SymbolTable;
+class StatementExecutor;
+
+typedef void        (*Fixture)(StatementExecutor*);
+typedef void*       (*Constructor)(StatementExecutor*, SlimList*);
+typedef void        (*Destructor)(void*);
 typedef const char* (*Method)(void*, SlimList*);
 
-StatementExecutor* StatementExecutor_Create();
-void               StatementExecutor_Destroy(StatementExecutor*);
+class StatementExecutor {
+public:
+    StatementExecutor();
+    ~StatementExecutor();
 
-void StatementExecutor_AddFixture(StatementExecutor* executor, Fixture);
-void StatementExecutor_RegisterFixture(StatementExecutor*, char const* className, Constructor, Destructor);
-void StatementExecutor_RegisterMethod(StatementExecutor*, char const* className, char const* methodName, Method);
+    void        addFixture(Fixture);
+    void        registerFixture(const char* className, Constructor, Destructor);
+    void        registerMethod(const char* className, const char* methodName, Method);
 
-const char* StatementExecutor_Make(StatementExecutor*, char const* instanceName, char const* className, SlimList* args);
-const char* StatementExecutor_Call(StatementExecutor*, char const* instanceName, char const* methodName, SlimList*);
-void*       StatementExecutor_Instance(StatementExecutor*, char const* instanceName);
-void        StatementExecutor_SetSymbol(StatementExecutor*, char const* symbol, char const* value);
+    const char* make(const char* instanceName, const char* className, SlimList* args);
+    const char* call(const char* instanceName, const char* methodName, SlimList* args);
+    void*       instance(const char* instanceName);
+    void        setSymbol(const char* symbol, const char* value);
 
-void        StatementExecutor_ConstructorError(StatementExecutor* executor, char const* message);
-const char* StatementExecutor_FixtureError(char const* message);
+    void               constructorError(const char* message);
+    static const char* fixtureError(const char* message);
+
+private:
+    struct MethodInfo {
+        std::string name;
+        Method      method;
+    };
+    struct FixtureInfo {
+        std::string             name;
+        Constructor             constructor = nullptr;
+        Destructor              destructor  = nullptr;
+        std::vector<MethodInfo> methods;
+    };
+    struct InstanceInfo {
+        std::string  name;
+        void*        instance;
+        FixtureInfo* fixture;   // stable pointer into fixtures_ deque
+    };
+
+    std::deque<FixtureInfo>  fixtures_;
+    std::deque<InstanceInfo> instances_;        // front = most recently created (LIFO)
+    std::deque<InstanceInfo> libraryInstances_;
+    SymbolTable*             symbolTable_;
+    std::string              message_;
+    std::string              userMessage_;
+
+    FixtureInfo*  findFixtureByName(const char* className);
+    FixtureInfo*  findFixture(const char* classNameWithSymbols);
+    InstanceInfo* getInstanceNode(const char* instanceName);
+    const char*   invokeMethod(MethodInfo* method, InstanceInfo* inst, SlimList* args);
+    void          replaceSymbols(SlimList* list);
+    std::string   replaceString(const char* s);
+    std::string   replaceStringFrom(const std::string& str, std::size_t from);
+};

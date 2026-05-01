@@ -1,35 +1,19 @@
 #include "SymbolTable.h"
-#include <string>
-#include <unordered_map>
 #include <cstring>
 
-struct SymbolTable {
-    std::unordered_map<std::string, std::string> map;
-};
-
-SymbolTable* SymbolTable_Create()
+const char* SymbolTable::findSymbol(const char* name, int length) const
 {
-    return new SymbolTable();
+    auto it = map_.find(std::string(name, static_cast<std::size_t>(length)));
+    return it != map_.end() ? it->second.c_str() : nullptr;
 }
 
-void SymbolTable_Destroy(SymbolTable* self)
+void SymbolTable::setSymbol(const char* symbol, const char* value)
 {
-    delete self;
+    map_[symbol] = value ? value : "";
 }
 
-const char* SymbolTable_FindSymbol(SymbolTable* self, char const* name, int length)
+int SymbolTable::getSymbolLength(const char* symbol, int length) const
 {
-    auto it = self->map.find(std::string(name, static_cast<std::size_t>(length)));
-    return it != self->map.end() ? it->second.c_str() : nullptr;
-}
-
-void SymbolTable_SetSymbol(SymbolTable* self, char const* symbol, char const* value)
-{
-    self->map[symbol] = value ? value : "";
-}
-
-int SymbolTable_GetSymbolLength(SymbolTable* self, char const* symbol, int length)
-{
-    const char* v = SymbolTable_FindSymbol(self, symbol, length);
+    const char* v = findSymbol(symbol, length);
     return v ? static_cast<int>(std::strlen(v)) : -1;
 }

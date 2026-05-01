@@ -1,8 +1,15 @@
 #pragma once
+#include <cstdint>
 
-typedef struct SocketServer SocketServer;
+class SocketServer {
+public:
+    SocketServer();
+    ~SocketServer();
+    int  run(char* port);
+    void registerHandler(int (*handlerFunction)(int));
 
-SocketServer* SocketServer_Create();
-void SocketServer_Destroy(SocketServer*);
-int  SocketServer_Run(SocketServer* self, char* port);
-void SocketServer_register_handler(SocketServer* self, int (*handlerFunction)(int));
+private:
+    int      (*handler_)(int) = nullptr;
+    intptr_t socket_          = -1;   // -1 == invalid on all platforms
+    int      port_            = 0;
+};

@@ -1,6 +1,2 @@
 #pragma once
-#include "SlimList.h"
-
-char* SlimList_Serialize(SlimList*);
-void  SlimList_Release(char* serializedResults);
-int   SlimList_SerializedLength(SlimList*);
+#include "SlimList.h"   // serialize(), serializedLength(), release() are now SlimList members

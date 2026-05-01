@@ -1,8 +1,14 @@
 #pragma once
+#include <cstdint>
 
-typedef struct TcpComLink TcpComLink;
+class TcpComLink {
+public:
+    explicit TcpComLink(int socket);
 
-TcpComLink* TcpComLink_Create(int socket);
-void TcpComLink_Destroy(TcpComLink*);
-int  TcpComLink_send(void* voidSelf, const char* msg, int length);
-int  TcpComLink_recv(void* voidSelf, char* buffer, int length);
+    // Static so they can be used as com_func_send_t / com_func_recv_t callbacks.
+    static int send(void* voidSelf, const char* msg, int length);
+    static int recv(void* voidSelf, char* buffer, int length);
+
+private:
+    intptr_t socket_;   // holds SOCKET (Win) or int (POSIX) without platform headers
+};

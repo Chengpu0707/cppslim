@@ -76,10 +76,10 @@ struct SlimConvert<std::string> {
 inline std::vector<std::string> slimListToVector(SlimList* args) {
     std::vector<std::string> v;
     if (!args) return v;
-    int n = SlimList_GetLength(args);
+    int n = args->getLength();
     v.reserve(static_cast<std::size_t>(n));
     for (int i = 0; i < n; ++i) {
-        const char* s = SlimList_GetStringAt(args, i);
+        const char* s = args->getStringAt(i);
         v.push_back(s ? s : "");
     }
     return v;
@@ -111,25 +111,22 @@ class SlimFixture {
 public:
     mutable std::string slimResult_;
 
-    // C-compatible constructor adapter registered with StatementExecutor
     static void* create(StatementExecutor* errorHandler, SlimList* args) noexcept {
         try {
             return new Derived(slimListToVector(args));
         } catch (const std::exception& e) {
-            StatementExecutor_ConstructorError(errorHandler, e.what());
+            errorHandler->constructorError(e.what());
             return nullptr;
         } catch (...) {
-            StatementExecutor_ConstructorError(errorHandler, "Unknown exception in constructor");
+            errorHandler->constructorError("Unknown exception in constructor");
             return nullptr;
         }
     }
 
-    // C-compatible destructor adapter
     static void destroy(void* instance) noexcept {
         delete static_cast<Derived*>(instance);
     }
 
-    // Store a string result and return a stable pointer valid until next call
     const char* storeResult(std::string s) const {
         slimResult_ = std::move(s);
         return slimResult_.c_str();
@@ -138,14 +135,6 @@ public:
 
 // ---------------------------------------------------------------------------
 // BoundMethod<T, MethodPtr> — bridges a pointer-to-member to the C Method ABI
-//
-//   const char* (*Method)(void*, SlimList*)
-//
-// Handles:
-//   - Automatic arg extraction from SlimList (by index)
-//   - SlimConvert<T> for all parameter and return types
-//   - void return → ""
-//   - std::exception → SLIM exception string
 // ---------------------------------------------------------------------------
 template<typename T, auto MethodPtr>
 struct BoundMethod {
@@ -159,19 +148,18 @@ private:
         if constexpr (std::is_void_v<Ret>) {
             (self->*MethodPtr)(
                 SlimConvert<slim_clean_t<std::tuple_element_t<I, ArgTypes>>>::from(
-                    SlimList_GetStringAt(args, static_cast<int>(I)))...);
+                    args->getStringAt(static_cast<int>(I)))...);
             return "";
         } else {
             return static_cast<SlimFixture<T>*>(self)->storeResult(
                 SlimConvert<slim_clean_t<Ret>>::to(
                     (self->*MethodPtr)(
                         SlimConvert<slim_clean_t<std::tuple_element_t<I, ArgTypes>>>::from(
-                            SlimList_GetStringAt(args, static_cast<int>(I)))...)));
+                            args->getStringAt(static_cast<int>(I)))...)));
         }
     }
 
 public:
-    // Registered with StatementExecutor_RegisterMethod as a Method function pointer
     static const char* call(void* inst, SlimList* args) noexcept {
         T* self = static_cast<T*>(inst);
         try {

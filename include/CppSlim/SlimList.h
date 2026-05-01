@@ -1,32 +1,66 @@
 #pragma once
+#include <string>
 
-typedef struct SlimList SlimList;
-typedef struct Node SlimListIterator;
+class SlimList;
 
-SlimList* SlimList_Create();
-void SlimList_Destroy(SlimList*);
+// SlimListIterator is both a linked-list node and the iterator handle.
+// Calling advance() on a non-null iterator returns the next node (or nullptr).
+// Always check for nullptr before calling any method: it != nullptr.
+class SlimListIterator {
+    friend class SlimList;
+public:
+    SlimListIterator* advance()       const { return next_; }
+    SlimListIterator* advanceBy(int n) const;
 
-SlimListIterator* SlimList_CreateIterator(SlimList*);
-int SlimList_Iterator_HasItem(SlimListIterator*);
-void SlimList_Iterator_Advance(SlimListIterator**);
-void SlimList_Iterator_AdvanceBy(SlimListIterator**, int);
+    const char* getString() const { return isNull_ ? nullptr : string_.c_str(); }
+    SlimList*   getList();
+    void        replace(const char* s);
 
-const char* SlimList_Iterator_GetString(SlimListIterator*);
-SlimList* SlimList_Iterator_GetList(SlimListIterator*);
-void SlimList_Iterator_Replace(SlimListIterator*, const char*);
+private:
+    SlimListIterator* next_   = nullptr;
+    bool              isNull_ = false;
+    std::string       string_;
+    SlimList*         list_   = nullptr;
+};
 
-void SlimList_AddString(SlimList*, char const* string);
-void SlimList_AddList(SlimList* self, SlimList* element);
-void SlimList_AddBuffer(SlimList* self, char const* buffer, int length);
-void SlimList_PopHead(SlimList* self);
+class SlimList {
+public:
+    SlimList();
+    ~SlimList();
 
-int SlimList_GetLength(SlimList*);
-int SlimList_Equals(SlimList* self, SlimList* other);
-SlimList*   SlimList_GetListAt(SlimList* self, int index);
-const char* SlimList_GetStringAt(SlimList* self, int index);
-double      SlimList_GetDoubleAt(SlimList* self, int index);
-SlimList*   SlimList_GetHashAt(SlimList* self, int index);
-void        SlimList_ReplaceAt(SlimList* self, int index, char const* replacementString);
-SlimList*   SlimList_GetTailAt(SlimList*, int index);
+    // Mutation
+    void addString(const char* s);
+    void addList(SlimList* element);
+    void addBuffer(const char* buf, int length);
+    void popHead();
+    void replaceAt(int index, const char* s);
 
-const char* SlimList_ToString(SlimList*); // caller must CSlim_DestroyString() the result
+    // Query
+    int         getLength()               const { return length_; }
+    bool        equals(const SlimList* other) const;
+    const char* getStringAt(int index)    const;
+    double      getDoubleAt(int index)    const;
+    SlimList*   getListAt(int index)      const;
+    SlimList*   getHashAt(int index)      const;
+    SlimList*   getTailAt(int index)      const;
+    const char* toString()                const; // caller must call SlimList::release()
+
+    // Iteration
+    SlimListIterator* createIterator() const { return head_; }
+
+    // Serialization  (implemented in SlimListSerializer.cpp)
+    char* serialize()          const;
+    int   serializedLength()   const;
+    static void release(char* serialized);
+
+    // Deserialization (implemented in SlimListDeserializer.cpp)
+    static SlimList* deserialize(const char* serialized);
+
+private:
+    int               length_ = 0;
+    SlimListIterator* head_   = nullptr;
+    SlimListIterator* tail_   = nullptr;
+
+    SlimListIterator* getNodeAt(int index) const;
+    void              insertNode(SlimListIterator* node);
+};

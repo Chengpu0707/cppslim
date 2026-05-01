@@ -24,10 +24,10 @@ static int mock_send_func(void* voidSelf, const char* msg, int length)
     self->lastSendIndex += length;
 
     int result = length;
-    if (SlimList_GetLength(self->sendReturnCodes) > 0) {
-        const char* s = SlimList_GetStringAt(self->sendReturnCodes, 0);
+    if (self->sendReturnCodes->getLength() > 0) {
+        const char* s = self->sendReturnCodes->getStringAt(0);
         result = atoi(s);
-        SlimList_PopHead(self->sendReturnCodes);
+        self->sendReturnCodes->popHead();
     }
     return result;
 }
@@ -60,7 +60,7 @@ static void AddSendResult(MockComLink* self, int result)
 {
     char string[22];
     sprintf(string, "%d", result);
-    SlimList_AddString(self->sendReturnCodes, string);
+    self->sendReturnCodes->addString(string);
 }
 
 // ---------------------------------------------------------------------------
@@ -73,20 +73,19 @@ protected:
     void*                  mockMessageHandler;
 
     void SetUp() override {
-        slimConnectionHandler = SlimConnectionHandler_Create(&mock_send_func, &mock_recv_func, (void*)&comLink);
+        slimConnectionHandler = new SlimConnectionHandler(&mock_send_func, &mock_recv_func, (void*)&comLink);
         memset(comLink.lastSendMsg, 0, sizeof(comLink.lastSendMsg));
         comLink.lastSendIndex = 0;
         mockMessageHandler    = (void*)0x123456;
-        comLink.sendReturnCodes = SlimList_Create();
-        SlimConnectionHandler_RegisterSlimMessageHandler(
-            slimConnectionHandler, mockMessageHandler, &mock_handle_slim_message);
+        comLink.sendReturnCodes = new SlimList();
+        slimConnectionHandler->registerSlimMessageHandler(mockMessageHandler, &mock_handle_slim_message);
         g_slimResponse = nullptr;
         memset(g_sentSlimMessage, 0, sizeof(g_sentSlimMessage));
         g_sentMsgHandler = nullptr;
     }
     void TearDown() override {
-        SlimConnectionHandler_Destroy(slimConnectionHandler);
-        SlimList_Destroy(comLink.sendReturnCodes);
+        delete slimConnectionHandler;
+        delete comLink.sendReturnCodes;
     }
 };
 
@@ -95,7 +94,7 @@ TEST_F(SlimConnectionHandlerTest, ShouldSendVersion)
     comLink.recvStream = "000003:bye";
     comLink.recvPtr    = comLink.recvStream;
 
-    SlimConnectionHandler_Run(slimConnectionHandler);
+    slimConnectionHandler->run();
 
     EXPECT_STREQ("Slim -- V0.3\n", comLink.lastSendMsg);
 }
@@ -108,7 +107,7 @@ TEST_F(SlimConnectionHandlerTest, ShouldReadMessageAndCallSlimHandler)
     g_slimResponse = (char*)malloc(8);
     strcpy(g_slimResponse, "ghijklm");
 
-    SlimConnectionHandler_Run(slimConnectionHandler);
+    slimConnectionHandler->run();
 
     EXPECT_STREQ("Slim -- V0.3\n000007:ghijklm", comLink.lastSendMsg);
     EXPECT_STREQ("abcdef", g_sentSlimMessage);
@@ -129,5 +128,5 @@ TEST_F(SlimConnectionHandlerTest, HandlesSendErrorWithoutMemoryLeak)
     comLink.recvStream = message;
     comLink.recvPtr    = comLink.recvStream;
     AddSendResult(&comLink, -1);
-    SlimConnectionHandler_Run(slimConnectionHandler);
+    slimConnectionHandler->run();
 }

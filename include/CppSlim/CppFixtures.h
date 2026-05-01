@@ -24,12 +24,12 @@
     void T##_Register(StatementExecutor* executor) {                           \
         using _FixtureType = T;                                                 \
         static const char* const _fixtureName = #T;                            \
-        StatementExecutor_RegisterFixture(executor, _fixtureName,               \
+        executor->registerFixture(_fixtureName,                                 \
             &SlimFixture<T>::create, &SlimFixture<T>::destroy);
 
 // Register one method name → BoundMethod adapter inside a SLIM_FIXTURE block.
 #define SLIM_METHOD(method)                                                     \
-    StatementExecutor_RegisterMethod(executor, _fixtureName, #method,          \
+    executor->registerMethod(_fixtureName, #method,                            \
         &BoundMethod<_FixtureType, &_FixtureType::method>::call);
 
 // Close the SLIM_FIXTURE block.
@@ -40,5 +40,5 @@
 #define SLIM_INCLUDE_FIXTURE(T)                                                 \
     do {                                                                        \
         void T##_Register(StatementExecutor*);                                 \
-        StatementExecutor_AddFixture(executor, T##_Register);                  \
+        executor->addFixture(T##_Register);                                     \
     } while (0)

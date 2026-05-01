@@ -1,5 +1,3 @@
-// Entry point — mirrors cslim's Main.c, reusing its protocol/transport layer.
-// AddFixtures() is provided by fixtures/Fixtures.cpp.
 #include "Slim.h"
 #include "SocketServer.h"
 #include "TcpComLink.h"
@@ -7,18 +5,18 @@
 static Slim* slim;
 
 static int connection_handler(int socket) {
-    TcpComLink* comLink = TcpComLink_Create(socket);
-    int result = Slim_HandleConnection(slim, comLink, &TcpComLink_send, &TcpComLink_recv);
-    TcpComLink_Destroy(comLink);
+    TcpComLink* comLink = new TcpComLink(socket);
+    int result = slim->handleConnection(comLink, &TcpComLink::send, &TcpComLink::recv);
+    delete comLink;
     return result;
 }
 
 int main(int /*argc*/, char** argv) {
-    slim = Slim_Create();
-    SocketServer* server = SocketServer_Create();
-    SocketServer_register_handler(server, &connection_handler);
-    int result = SocketServer_Run(server, argv[1]);
-    SocketServer_Destroy(server);
-    Slim_Destroy(slim);
+    slim = new Slim();
+    SocketServer* server = new SocketServer();
+    server->registerHandler(&connection_handler);
+    int result = server->run(argv[1]);
+    delete server;
+    delete slim;
     return result;
 }

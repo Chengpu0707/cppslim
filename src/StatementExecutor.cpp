@@ -1,41 +1,8 @@
 #include "StatementExecutor.h"
-#include "SlimList.h"
-#include "SlimListDeserializer.h"
-#include "SlimListSerializer.h"
 #include "SymbolTable.h"
-#include <string>
-#include <vector>
-#include <deque>
 #include <cstring>
 #include <cctype>
 #include <cassert>
-
-struct MethodInfo {
-    std::string name;
-    Method method;
-};
-
-struct FixtureInfo {
-    std::string name;
-    Constructor constructor = nullptr;
-    Destructor destructor = nullptr;
-    std::vector<MethodInfo> methods;
-};
-
-struct InstanceInfo {
-    std::string name;
-    void* instance;
-    FixtureInfo* fixture;  // stable pointer into StatementExecutor::fixtures deque
-};
-
-struct StatementExecutor {
-    std::deque<FixtureInfo>  fixtures;
-    std::deque<InstanceInfo> instances;         // front = most recently created (LIFO)
-    std::deque<InstanceInfo> libraryInstances;
-    SymbolTable* symbolTable;
-    std::string message;
-    std::string userMessage;
-};
 
 static std::string trunc32(const char* s)
 {
@@ -44,156 +11,195 @@ static std::string trunc32(const char* s)
     return std::string(s, len > 32 ? 32 : len);
 }
 
-static bool compareNamesIgnoreUnderScores(const char* name1, const char* name2)
+static bool compareNamesIgnoreUnderScores(const char* a, const char* b)
 {
-    while (*name1 && *name2) {
-        if (*name1 == *name2) { name1++; name2++; }
-        else if (*name1 == '_') name1++;
-        else if (*name2 == '_') name2++;
+    while (*a && *b) {
+        if (*a == *b)       { ++a; ++b; }
+        else if (*a == '_') { ++a; }
+        else if (*b == '_') { ++b; }
         else return false;
     }
-    return *name1 == *name2;
+    return *a == *b;
 }
 
-static FixtureInfo* findFixtureByName(StatementExecutor* executor, const char* className);
-static FixtureInfo* findFixture(StatementExecutor* executor, const char* classNameWithSymbols);
-static InstanceInfo* GetInstanceNode(StatementExecutor* executor, const char* instanceName);
-static MethodInfo* findMethodNode(std::vector<MethodInfo>& methods, const char* methodName);
-static const char* invokeMethod(StatementExecutor* executor, MethodInfo* method, InstanceInfo* inst, SlimList* args);
-static void replaceSymbols(SymbolTable*, SlimList*);
-static std::string replaceString(SymbolTable*, const char*);
-static std::string replaceStringFrom(SymbolTable*, const std::string&, std::size_t from);
-static bool isLibraryInstanceName(const char* instanceName);
+static bool isLibraryInstanceName(const char* name)
+{
+    return std::strncmp(name, "library", 7) == 0;
+}
+
 static void* Null_Create(StatementExecutor*, SlimList*) { return nullptr; }
 static void  Null_Destroy(void*) {}
 
-StatementExecutor* StatementExecutor_Create()
+// ---------------------------------------------------------------------------
+
+StatementExecutor::StatementExecutor()
 {
-    StatementExecutor* self = new StatementExecutor();
-    self->symbolTable = SymbolTable_Create();
-    return self;
+    symbolTable_ = new SymbolTable();
 }
 
-void StatementExecutor_Destroy(StatementExecutor* self)
+StatementExecutor::~StatementExecutor()
 {
-    for (auto& inst : self->libraryInstances)
+    for (auto& inst : libraryInstances_)
         inst.fixture->destructor(inst.instance);
-    for (auto& inst : self->instances)
+    for (auto& inst : instances_)
         inst.fixture->destructor(inst.instance);
-    SymbolTable_Destroy(self->symbolTable);
-    delete self;
+    delete symbolTable_;
 }
 
-static InstanceInfo* GetInstanceNode(StatementExecutor* executor, const char* instanceName)
+void StatementExecutor::addFixture(Fixture fixture)
 {
-    for (auto& inst : executor->instances)
+    fixture(this);
+}
+
+void StatementExecutor::registerFixture(const char* className, Constructor ctor, Destructor dtor)
+{
+    FixtureInfo* existing = findFixtureByName(className);
+    if (!existing) {
+        fixtures_.push_back({className, ctor, dtor, {}});
+    } else {
+        existing->constructor = ctor;
+        existing->destructor  = dtor;
+    }
+}
+
+void StatementExecutor::registerMethod(const char* className, const char* methodName, Method method)
+{
+    FixtureInfo* fixture = findFixtureByName(className);
+    if (!fixture) {
+        fixtures_.push_back({className, Null_Create, Null_Destroy, {}});
+        fixture = &fixtures_.back();
+    }
+    fixture->methods.push_back({methodName, method});
+}
+
+const char* StatementExecutor::make(const char* instanceName, const char* className, SlimList* args)
+{
+    FixtureInfo* fixture = findFixture(className);
+    if (!fixture) {
+        message_ = std::string("__EXCEPTION__:message:<<NO_CLASS ") + trunc32(className) + ".>>";
+        return message_.c_str();
+    }
+    replaceSymbols(args);
+    userMessage_.clear();
+    void* inst = fixture->constructor(this, args);
+
+    InstanceInfo info{instanceName, inst, fixture};
+    if (isLibraryInstanceName(instanceName))
+        libraryInstances_.push_front(std::move(info));
+    else
+        instances_.push_front(std::move(info));
+
+    if (inst != nullptr)
+        return "OK";
+    message_ = std::string("__EXCEPTION__:message:<<COULD_NOT_INVOKE_CONSTRUCTOR ")
+        + trunc32(className) + " " + trunc32(userMessage_.c_str()) + ".>>";
+    return message_.c_str();
+}
+
+const char* StatementExecutor::call(const char* instanceName, const char* methodName, SlimList* args)
+{
+    InstanceInfo* inst = getInstanceNode(instanceName);
+    if (inst) {
+        for (auto& m : inst->fixture->methods) {
+            if (compareNamesIgnoreUnderScores(methodName, m.name.c_str()))
+                return invokeMethod(&m, inst, args);
+        }
+        for (auto& lib : libraryInstances_) {
+            for (auto& m : lib.fixture->methods) {
+                if (compareNamesIgnoreUnderScores(methodName, m.name.c_str()))
+                    return invokeMethod(&m, &lib, args);
+            }
+        }
+        message_ = std::string("__EXCEPTION__:message:<<NO_METHOD_IN_CLASS ")
+            + trunc32(methodName) + "[" + std::to_string(args->getLength()) + "] "
+            + trunc32(inst->fixture->name.c_str()) + ".>>";
+        return message_.c_str();
+    }
+    message_ = std::string("__EXCEPTION__:message:<<NO_INSTANCE ") + trunc32(instanceName) + ".>>";
+    return message_.c_str();
+}
+
+void* StatementExecutor::instance(const char* instanceName)
+{
+    InstanceInfo* node = getInstanceNode(instanceName);
+    return node ? node->instance : nullptr;
+}
+
+void StatementExecutor::setSymbol(const char* symbol, const char* value)
+{
+    symbolTable_->setSymbol(symbol, value);
+}
+
+void StatementExecutor::constructorError(const char* message)
+{
+    userMessage_ = message ? message : "";
+}
+
+const char* StatementExecutor::fixtureError(const char* message)
+{
+    static std::string buf;
+    buf = std::string("__EXCEPTION__:message:<<") + message + ".>>";
+    return buf.c_str();
+}
+
+// ---------------------------------------------------------------------------
+// Private helpers
+// ---------------------------------------------------------------------------
+
+StatementExecutor::FixtureInfo* StatementExecutor::findFixtureByName(const char* className)
+{
+    for (auto& f : fixtures_)
+        if (compareNamesIgnoreUnderScores(f.name.c_str(), className))
+            return &f;
+    return nullptr;
+}
+
+StatementExecutor::FixtureInfo* StatementExecutor::findFixture(const char* classNameWithSymbols)
+{
+    std::string className = replaceString(classNameWithSymbols);
+    return findFixtureByName(className.c_str());
+}
+
+StatementExecutor::InstanceInfo* StatementExecutor::getInstanceNode(const char* instanceName)
+{
+    for (auto& inst : instances_)
         if (compareNamesIgnoreUnderScores(inst.name.c_str(), instanceName))
             return &inst;
     return nullptr;
 }
 
-const char* StatementExecutor_Make(StatementExecutor* executor, char const* instanceName, char const* className, SlimList* args)
+const char* StatementExecutor::invokeMethod(MethodInfo* method, InstanceInfo* inst, SlimList* args)
 {
-    FixtureInfo* fixture = findFixture(executor, className);
-    if (!fixture) {
-        executor->message = std::string("__EXCEPTION__:message:<<NO_CLASS ") + trunc32(className) + ".>>";
-        return executor->message.c_str();
-    }
-    replaceSymbols(executor->symbolTable, args);
-    executor->userMessage.clear();
-    void* instance = fixture->constructor(executor, args);
-
-    InstanceInfo inst{instanceName, instance, fixture};
-    if (isLibraryInstanceName(instanceName))
-        executor->libraryInstances.push_front(std::move(inst));
-    else
-        executor->instances.push_front(std::move(inst));
-
-    if (instance != nullptr)
-        return "OK";
-    executor->message = std::string("__EXCEPTION__:message:<<COULD_NOT_INVOKE_CONSTRUCTOR ")
-        + trunc32(className) + " " + trunc32(executor->userMessage.c_str()) + ".>>";
-    return executor->message.c_str();
-}
-
-const char* StatementExecutor_Call(StatementExecutor* executor, char const* instanceName, char const* methodName, SlimList* args)
-{
-    InstanceInfo* inst = GetInstanceNode(executor, instanceName);
-    if (inst) {
-        MethodInfo* method = findMethodNode(inst->fixture->methods, methodName);
-        if (method)
-            return invokeMethod(executor, method, inst, args);
-
-        for (auto& lib : executor->libraryInstances) {
-            method = findMethodNode(lib.fixture->methods, methodName);
-            if (method)
-                return invokeMethod(executor, method, &lib, args);
-        }
-
-        executor->message = std::string("__EXCEPTION__:message:<<NO_METHOD_IN_CLASS ")
-            + trunc32(methodName) + "[" + std::to_string(SlimList_GetLength(args)) + "] "
-            + trunc32(inst->fixture->name.c_str()) + ".>>";
-        return executor->message.c_str();
-    }
-    executor->message = std::string("__EXCEPTION__:message:<<NO_INSTANCE ")
-        + trunc32(instanceName) + ".>>";
-    return executor->message.c_str();
-}
-
-static FixtureInfo* findFixture(StatementExecutor* executor, const char* classNameWithSymbols)
-{
-    std::string className = replaceString(executor->symbolTable, classNameWithSymbols);
-    return findFixtureByName(executor, className.c_str());
-}
-
-static bool isLibraryInstanceName(const char* instanceName)
-{
-    return strncmp(instanceName, "library", 7) == 0;
-}
-
-static MethodInfo* findMethodNode(std::vector<MethodInfo>& methods, const char* methodName)
-{
-    for (auto& m : methods)
-        if (compareNamesIgnoreUnderScores(methodName, m.name.c_str()))
-            return &m;
-    return nullptr;
-}
-
-static const char* invokeMethod(StatementExecutor* executor, MethodInfo* method, InstanceInfo* inst, SlimList* args)
-{
-    replaceSymbols(executor->symbolTable, args);
+    replaceSymbols(args);
     return method->method(inst->instance, args);
 }
 
-static void replaceSymbols(SymbolTable* symbolTable, SlimList* list)
+void StatementExecutor::replaceSymbols(SlimList* list)
 {
-    SlimListIterator* it = SlimList_CreateIterator(list);
-    while (SlimList_Iterator_HasItem(it)) {
-        const char* string = SlimList_Iterator_GetString(it);
-        if (string != nullptr) {
-            SlimList* embedded = SlimList_Deserialize(string);
+    for (auto* it = list->createIterator(); it != nullptr; it = it->advance()) {
+        const char* s = it->getString();
+        if (s != nullptr) {
+            SlimList* embedded = SlimList::deserialize(s);
             if (!embedded) {
-                std::string replaced = replaceString(symbolTable, string);
-                SlimList_Iterator_Replace(it, replaced.c_str());
+                it->replace(replaceString(s).c_str());
             } else {
-                replaceSymbols(symbolTable, embedded);
-                char* serialized = SlimList_Serialize(embedded);
-                SlimList_Iterator_Replace(it, serialized);
-                SlimList_Destroy(embedded);
-                SlimList_Release(serialized);
+                replaceSymbols(embedded);
+                char* serial = embedded->serialize();
+                it->replace(serial);
+                delete embedded;
+                SlimList::release(serial);
             }
         }
-        SlimList_Iterator_Advance(&it);
     }
 }
 
-static std::string replaceString(SymbolTable* symbolTable, const char* s)
+std::string StatementExecutor::replaceString(const char* s)
 {
     if (!s) return "";
-    return replaceStringFrom(symbolTable, s, 0);
+    return replaceStringFrom(s, 0);
 }
 
-static std::string replaceStringFrom(SymbolTable* symbolTable, const std::string& str, std::size_t from)
+std::string StatementExecutor::replaceStringFrom(const std::string& str, std::size_t from)
 {
     std::size_t dollarPos = str.find('$', from);
     if (dollarPos == std::string::npos)
@@ -201,74 +207,15 @@ static std::string replaceStringFrom(SymbolTable* symbolTable, const std::string
 
     std::size_t nameEnd = dollarPos + 1;
     while (nameEnd < str.size() && std::isalnum(static_cast<unsigned char>(str[nameEnd])))
-        nameEnd++;
+        ++nameEnd;
     int length = static_cast<int>(nameEnd - dollarPos - 1);
 
-    const char* symbolValue = SymbolTable_FindSymbol(symbolTable, str.c_str() + dollarPos + 1, length);
-    if (symbolValue) {
-        std::string newStr = str.substr(0, dollarPos) + symbolValue + str.substr(nameEnd);
-        return replaceStringFrom(symbolTable, newStr, 0);
+    const char* value = symbolTable_->findSymbol(str.c_str() + dollarPos + 1, length);
+    if (value) {
+        std::string newStr = str.substr(0, dollarPos) + value + str.substr(nameEnd);
+        return replaceStringFrom(newStr, 0);
     }
-
-    // Symbol not found: advance past '$' (or return if '$' is at end)
     if (dollarPos + 1 == str.size())
         return str;
-    return replaceStringFrom(symbolTable, str, dollarPos + 1);
-}
-
-void* StatementExecutor_Instance(StatementExecutor* executor, char const* instanceName)
-{
-    InstanceInfo* node = GetInstanceNode(executor, instanceName);
-    return node ? node->instance : nullptr;
-}
-
-void StatementExecutor_AddFixture(StatementExecutor* executor, Fixture fixture)
-{
-    fixture(executor);
-}
-
-void StatementExecutor_RegisterFixture(StatementExecutor* executor, char const* className, Constructor constructor, Destructor destructor)
-{
-    FixtureInfo* existing = findFixtureByName(executor, className);
-    if (!existing) {
-        executor->fixtures.push_back({className, constructor, destructor, {}});
-    } else {
-        existing->constructor = constructor;
-        existing->destructor  = destructor;
-    }
-}
-
-static FixtureInfo* findFixtureByName(StatementExecutor* executor, const char* className)
-{
-    for (auto& f : executor->fixtures)
-        if (compareNamesIgnoreUnderScores(f.name.c_str(), className))
-            return &f;
-    return nullptr;
-}
-
-void StatementExecutor_RegisterMethod(StatementExecutor* executor, char const* className, char const* methodName, Method method)
-{
-    FixtureInfo* fixture = findFixtureByName(executor, className);
-    if (!fixture) {
-        executor->fixtures.push_back({className, Null_Create, Null_Destroy, {}});
-        fixture = &executor->fixtures.back();
-    }
-    fixture->methods.push_back({methodName, method});
-}
-
-void StatementExecutor_SetSymbol(StatementExecutor* self, char const* symbol, char const* value)
-{
-    SymbolTable_SetSymbol(self->symbolTable, symbol, value);
-}
-
-void StatementExecutor_ConstructorError(StatementExecutor* executor, char const* message)
-{
-    executor->userMessage = message ? message : "";
-}
-
-const char* StatementExecutor_FixtureError(char const* message)
-{
-    static std::string buf;
-    buf = std::string("__EXCEPTION__:message:<<") + message + ".>>";
-    return buf.c_str();
+    return replaceStringFrom(str, dollarPos + 1);
 }

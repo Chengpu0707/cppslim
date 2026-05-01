@@ -12,14 +12,14 @@ struct TestSlim {
 
 void* TestSlim_Create(StatementExecutor* executor, SlimList* args)
 {
-    if (SlimList_GetLength(args) > 1) {
-        StatementExecutor_ConstructorError(executor, "xxx");
-        return NULL;
+    if (args->getLength() > 1) {
+        executor->constructorError("xxx");
+        return nullptr;
     }
     TestSlim* self = (TestSlim*)malloc(sizeof(TestSlim));
     memset(self, 0, sizeof(TestSlim));
-    if (SlimList_GetLength(args) == 1)
-        strncpy(self->constructionArg, SlimList_GetStringAt(args, 0), 49);
+    if (args->getLength() == 1)
+        strncpy(self->constructionArg, args->getStringAt(0), 49);
     return self;
 }
 
@@ -46,25 +46,25 @@ static const char* returnValue(void*, SlimList*)
 
 static const char* oneArg(void*, SlimList* args)
 {
-    return SlimList_GetStringAt(args, 0);
+    return args->getStringAt(0);
 }
 
 static const char* add(void*, SlimList* args)
 {
     static char buf[50];
     snprintf(buf, sizeof(buf), "%s%s",
-        SlimList_GetStringAt(args, 0), SlimList_GetStringAt(args, 1));
+        args->getStringAt(0), args->getStringAt(1));
     return buf;
 }
 
 static const char* null_method(void*, SlimList*)
 {
-    return NULL;
+    return nullptr;
 }
 
 static const char* setArg(void* self, SlimList* args)
 {
-    ((TestSlim*)self)->arg = SlimList_GetStringAt(args, 0);
+    ((TestSlim*)self)->arg = args->getStringAt(0);
     return "/__VOID__/";
 }
 
@@ -85,30 +85,30 @@ static const char* getConstructionArg(void* self, SlimList*)
 
 static const char* returnError(void*, SlimList*)
 {
-    return StatementExecutor_FixtureError("my exception");
+    return StatementExecutor::fixtureError("my exception");
 }
 
 void TestSlim_Register(StatementExecutor* executor)
 {
-    StatementExecutor_RegisterFixture(executor, "TestSlim", TestSlim_Create, TestSlim_Destroy);
-    StatementExecutor_RegisterMethod(executor, "TestSlim", "returnValue", returnValue);
-    StatementExecutor_RegisterMethod(executor, "TestSlim", "noArgs",      noArgs);
-    StatementExecutor_RegisterMethod(executor, "TestSlim", "echo",        oneArg);
-    StatementExecutor_RegisterMethod(executor, "TestSlim", "add",         add);
-    StatementExecutor_RegisterMethod(executor, "TestSlim", "null",        null_method);
-    StatementExecutor_RegisterMethod(executor, "TestSlim", "setArg",      setArg);
-    StatementExecutor_RegisterMethod(executor, "TestSlim", "getArg",      getArg);
-    StatementExecutor_RegisterMethod(executor, "TestSlim", "getArg_From_Function_With_Underscores",
-                                     getArg_From_Function_With_Underscores);
-    StatementExecutor_RegisterMethod(executor, "TestSlim", "getConstructionArg", getConstructionArg);
-    StatementExecutor_RegisterMethod(executor, "TestSlim", "returnError", returnError);
+    executor->registerFixture("TestSlim", TestSlim_Create, TestSlim_Destroy);
+    executor->registerMethod("TestSlim", "returnValue", returnValue);
+    executor->registerMethod("TestSlim", "noArgs",      noArgs);
+    executor->registerMethod("TestSlim", "echo",        oneArg);
+    executor->registerMethod("TestSlim", "add",         add);
+    executor->registerMethod("TestSlim", "null",        null_method);
+    executor->registerMethod("TestSlim", "setArg",      setArg);
+    executor->registerMethod("TestSlim", "getArg",      getArg);
+    executor->registerMethod("TestSlim", "getArg_From_Function_With_Underscores",
+                             getArg_From_Function_With_Underscores);
+    executor->registerMethod("TestSlim", "getConstructionArg", getConstructionArg);
+    executor->registerMethod("TestSlim", "returnError", returnError);
 
-    StatementExecutor_RegisterFixture(executor, "TestSlimAgain", TestSlim_Create, TestSlim_Destroy);
-    StatementExecutor_RegisterMethod(executor, "TestSlimAgain", "setArgAgain", setArg);
-    StatementExecutor_RegisterMethod(executor, "TestSlimAgain", "getArgAgain", getArg);
+    executor->registerFixture("TestSlimAgain", TestSlim_Create, TestSlim_Destroy);
+    executor->registerMethod("TestSlimAgain", "setArgAgain", setArg);
+    executor->registerMethod("TestSlimAgain", "getArgAgain", getArg);
 
-    StatementExecutor_RegisterMethod(executor, "TestSlimDeclaredLate", "echo", oneArg);
-    StatementExecutor_RegisterFixture(executor, "TestSlimDeclaredLate", TestSlim_Create, TestSlim_Destroy);
+    executor->registerMethod("TestSlimDeclaredLate", "echo", oneArg);
+    executor->registerFixture("TestSlimDeclaredLate", TestSlim_Create, TestSlim_Destroy);
 
-    StatementExecutor_RegisterMethod(executor, "TestSlimUndeclared", "echo", oneArg);
+    executor->registerMethod("TestSlimUndeclared", "echo", oneArg);
 }
