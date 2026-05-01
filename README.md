@@ -39,9 +39,13 @@ A ready-made Ubuntu 22.04 dev image is in `.devcontainer/`:
 
 ```sh
 docker build -t cppslim-dev .devcontainer/
-docker run --rm -v "$PWD:/workspace" cppslim-dev bash -c "
-    cd /workspace/cppslim && cmake -B build-linux && cmake --build build-linux -j4"
+docker run --rm -v "$PWD/cppslim:/workspace" cppslim-dev bash -c "
+    cmake -S /workspace -B /tmp/build-linux -DCMAKE_BUILD_TYPE=Release &&
+    cmake --build /tmp/build-linux -j4 &&
+    /tmp/build-linux/tests/CppSlimTests"
 ```
+
+The build directory is placed in `/tmp` inside the container to avoid permission conflicts with the Windows host volume.
 
 ### Running the tests
 
@@ -198,6 +202,27 @@ In any FitNesse wiki page, set these four `define` variables before the test tab
 
 ---
 
+## CMake targets
+
+| Target | Type | Purpose |
+|---|---|---|
+| `CppSlimFixtures` | INTERFACE | Headers-only fixture-authoring library. Link your fixture library against this target only — no protocol code needed at compile time. |
+| `CppSlimLib` | STATIC | Full protocol/transport implementation. Links `CppSlimFixtures` publicly, so the final executable only needs to link `CppSlimLib`. |
+| `Fixtures` | STATIC | Example fixture library (Division, Count, EmployeePayRecords). Links `CppSlimFixtures` only — demonstrates the clean separation. |
+| `CppSlim` | executable | Links `CppSlimLib + Fixtures`. |
+
+Typical layout for your own fixture library:
+
+```cmake
+add_library(MyFixtures STATIC MyFixture.cpp)
+target_link_libraries(MyFixtures PRIVATE CppSlimFixtures)   # compile-time only
+
+add_executable(MyCppSlim src/main.cpp fixtures/Fixtures.cpp)
+target_link_libraries(MyCppSlim PRIVATE CppSlimLib MyFixtures)  # link-time
+```
+
+---
+
 ## Project layout
 
 ```
@@ -209,8 +234,8 @@ cppslim/
 │   ├── SlimListSerializer.h
 │   └── StatementExecutor.h # Low-level fixture registration (used by macros)
 ├── src/                    # Protocol/transport implementation (CppSlimLib)
-├── fixtures/               # Example fixtures + Fixtures.cpp registry
+├── fixtures/               # Example fixtures + Fixtures.cpp registry (Fixtures target)
 └── tests/                  # GoogleTest suite (105 tests)
 ```
 
-Only `include/CppSlim/CppFixtures.h` and `include/CppSlim/SlimFixture.h` are needed for ordinary fixture development. The other headers are available if a fixture needs to build `SlimList` structures manually (see `EmployeePayRecords.cpp`).
+Only `CppFixtures.h` and `SlimFixture.h` are needed for ordinary fixture development. The other headers are available if a fixture needs to build `SlimList` structures manually (see `EmployeePayRecords.cpp`).

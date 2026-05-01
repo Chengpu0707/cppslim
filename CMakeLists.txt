@@ -9,6 +9,19 @@ if(NOT CMAKE_BUILD_TYPE)
 endif()
 
 # ---------------------------------------------------------------------------
+# CppSlimFixtures — header-only fixture-authoring library
+#   Provides: CppFixtures.h, SlimFixture.h (and their transitive headers)
+#   Fixture libraries link against this target only; no protocol code needed.
+# ---------------------------------------------------------------------------
+add_library(CppSlimFixtures INTERFACE)
+
+target_compile_features(CppSlimFixtures INTERFACE cxx_std_17)
+
+target_include_directories(CppSlimFixtures INTERFACE
+    ${CMAKE_CURRENT_SOURCE_DIR}/include/CppSlim
+)
+
+# ---------------------------------------------------------------------------
 # CppSlimLib — protocol/transport library (no fixture code, no main)
 # ---------------------------------------------------------------------------
 add_library(CppSlimLib STATIC
@@ -25,11 +38,7 @@ add_library(CppSlimLib STATIC
     src/TcpComLink.cpp
 )
 
-target_compile_features(CppSlimLib PUBLIC cxx_std_17)
-
-target_include_directories(CppSlimLib PUBLIC
-    ${CMAKE_CURRENT_SOURCE_DIR}/include/CppSlim
-)
+target_link_libraries(CppSlimLib PUBLIC CppSlimFixtures)
 
 if(WIN32)
     target_link_libraries(CppSlimLib PUBLIC ws2_32)
@@ -46,23 +55,24 @@ elseif(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
 endif()
 
 # ---------------------------------------------------------------------------
-# CppSlim executable
+# Fixtures — example fixture library, depends on CppSlimFixtures only
+#   Demonstrates that fixture code needs no knowledge of the protocol layer.
 # ---------------------------------------------------------------------------
-add_executable(CppSlim
-    src/main.cpp
+add_library(Fixtures STATIC
     fixtures/Fixtures.cpp
     fixtures/Division.cpp
     fixtures/Count.cpp
     fixtures/EmployeePayRecords.cpp
 )
 
-target_compile_features(CppSlim PRIVATE cxx_std_17)
+target_link_libraries(Fixtures PUBLIC CppSlimFixtures)
 
-target_include_directories(CppSlim PRIVATE
-    ${CMAKE_CURRENT_SOURCE_DIR}/include/CppSlim
-)
+# ---------------------------------------------------------------------------
+# CppSlim executable
+# ---------------------------------------------------------------------------
+add_executable(CppSlim src/main.cpp)
 
-target_link_libraries(CppSlim PRIVATE CppSlimLib)
+target_link_libraries(CppSlim PRIVATE CppSlimLib Fixtures)
 
 if(MSVC)
     target_compile_options(CppSlim PRIVATE
@@ -74,7 +84,10 @@ elseif(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
     target_compile_options(CppSlim PRIVATE -Wall -Wextra)
 endif()
 
-install(TARGETS CppSlim RUNTIME DESTINATION bin)
+install(TARGETS CppSlim CppSlimLib CppSlimFixtures
+    RUNTIME DESTINATION bin
+    ARCHIVE DESTINATION lib
+)
 
 # ---------------------------------------------------------------------------
 # Unit tests (gtest, fetched at configure time)
