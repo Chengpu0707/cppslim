@@ -1,2 +1,8 @@
 build/
 build-*/
+
+# FitNesse unpacked built-in pages and runtime artifacts
+FitNesseRoot/FitNesse/
+FitNesseRoot/files/
+FitNesseRoot/*.zip
+FitNesseRoot/RecentChanges.wiki

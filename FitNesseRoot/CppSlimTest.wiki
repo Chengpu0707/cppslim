@@ -1,0 +1,23 @@
+---
+Help: CppSlim language test
+Suite: true
+---
+
+!define TEST_SYSTEM {slim}
+!define SLIM_PORT {0}
+!define TEST_RUNNER {build/CppSlim.exe}
+!define COMMAND_PATTERN {%m}
+
+|Division                       |
+|numerator|denominator|quotient?|
+|10       |2          |5        |
+|6        |3          |2        |
+|10       |0          |inf      |
+
+!|query:EmployeePayRecords|
+|id       |pay          |
+|1        |1000         |
+
+|script|Count   |
+|count           |
+|check|counter|1|

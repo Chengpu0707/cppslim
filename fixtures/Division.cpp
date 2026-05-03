@@ -1,6 +1,5 @@
 // Decision-table fixture: mirrors cslim's DecisionTableExample.c
 // Setters throw on invalid input; lifecycle methods (execute/reset/table) are optional.
-#include <stdexcept>
 #include <vector>
 #include <string>
 #include "CppFixtures.h"
@@ -13,11 +12,7 @@ public:
     explicit Division(const std::vector<std::string>&) {}
 
     void   setNumerator(double d)   { numerator_ = d; }
-    void   setDenominator(double d) {
-        denominator_ = d;
-        if (d == 0.0)
-            throw std::runtime_error("You shouldn't divide by zero now should ya?");
-    }
+    void   setDenominator(double d) { denominator_ = d; }
     double quotient() const         { return numerator_ / denominator_; }
 
     // Optional decision-table lifecycle hooks
