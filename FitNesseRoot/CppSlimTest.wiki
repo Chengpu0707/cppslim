@@ -1,8 +1,7 @@
 ---
 Help: CppSlim language test
-Suite: true
+Suite
 ---
-
 !define TEST_SYSTEM {slim}
 !define SLIM_PORT {0}
 !define TEST_RUNNER {build/CppSlim.exe}
@@ -12,7 +11,7 @@ Suite: true
 |numerator|denominator|quotient?|
 |10       |2          |5        |
 |6        |3          |2        |
-|10       |0          |inf      |
+|10       |0          |You shouldn't divide by zero now should ya?           |
 
 !|query:EmployeePayRecords|
 |id       |pay          |

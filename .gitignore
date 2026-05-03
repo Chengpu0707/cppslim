@@ -1,6 +1,9 @@
 build/
 build-*/
 
+# FitNesse jar (downloaded via `cmake --build build --target fitnesse_jar`)
+lib/fitnesse-standalone.jar
+
 # FitNesse unpacked built-in pages and runtime artifacts
 FitNesseRoot/FitNesse/
 FitNesseRoot/files/

@@ -93,3 +93,14 @@ install(TARGETS CppSlim CppSlimLib CppSlimFixtures
 # Unit tests (gtest, fetched at configure time)
 # ---------------------------------------------------------------------------
 add_subdirectory(tests)
+
+# ---------------------------------------------------------------------------
+# FitNesse jar — download latest release from GitHub
+#   Usage: cmake --build build --target fitnesse_jar
+# ---------------------------------------------------------------------------
+add_custom_target(fitnesse_jar
+    COMMAND ${CMAKE_COMMAND}
+        -DLIB_DIR=${CMAKE_SOURCE_DIR}/lib
+        -P ${CMAKE_SOURCE_DIR}/cmake/FetchFitNesse.cmake
+    COMMENT "Downloading latest fitnesse-standalone.jar"
+)
