@@ -1,6 +1,10 @@
 build/
 build-*/
 
+# Jar decompilation artifacts
+Resources/
+fitnesse/
+
 # FitNesse jar (downloaded via `cmake --build build --target fitnesse_jar`)
 lib/fitnesse-standalone.jar
 

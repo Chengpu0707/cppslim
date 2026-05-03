@@ -11,7 +11,7 @@ Suite: true
 |numerator|denominator|quotient?|
 |10       |2          |5        |
 |6        |3          |2        |
-|10       |0          |You shouldn't divide by zero now should ya?           |
+|10       |0          |EXCEPTION:=~/divide by zero/                          |
 
 !|query:EmployeePayRecords|
 |id       |pay          |
