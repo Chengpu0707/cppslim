@@ -1,6 +1,6 @@
 ---
 Help: CppSlim language test
-Suite
+Suite: true
 ---
 !define TEST_SYSTEM {slim}
 !define SLIM_PORT {0}
