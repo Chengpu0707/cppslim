@@ -47,7 +47,7 @@ docker run --rm -v "$PWD/cppslim:/workspace" cppslim-dev bash -c "
 
 The build directory is placed in `/tmp` inside the container to avoid permission conflicts with the Windows host volume.
 
-### Running the tests
+### Running the unit tests
 
 ```sh
 # Windows
@@ -58,6 +58,27 @@ build-linux/tests/CppSlimTests
 ```
 
 All 105 tests should pass on both platforms.
+
+---
+
+## Running FitNesse acceptance tests
+
+### 1. Download FitNesse
+
+```sh
+cmake --build build --target fitnesse_jar
+```
+
+This queries the GitHub API for the latest release and downloads `fitnesse-standalone.jar` to `lib/`. Re-run whenever you want to upgrade.
+
+### 2. Start FitNesse
+
+```sh
+# From the cppslim/ directory
+java -jar lib/fitnesse-standalone.jar -d . -p 9124
+```
+
+Open `http://localhost:9124/CppSlimTest` and click **Test** to run the bundled acceptance test suite.
 
 ---
 
@@ -112,21 +133,26 @@ Constructor arguments arrive as `std::vector<std::string>` — convert them manu
 
 ### Signalling errors
 
-Throw any `std::exception` from a method or constructor; CppSlim catches it and reports a `__EXCEPTION__` result to FitNesse:
+Throw any `std::exception` from a method or constructor; CppSlim catches it and sends a `__EXCEPTION__` result to FitNesse:
 
 ```cpp
-void setDenominator(double d) {
-    if (d == 0.0)
-        throw std::runtime_error("Cannot divide by zero");
-    denominator_ = d;
+double quotient() const {
+    if (denominator_ == 0.0)
+        throw std::runtime_error("You shouldn't divide by zero now should ya?");
+    return numerator_ / denominator_;
 }
 ```
 
-To report an error from a `const char*`-returning context, use:
+To expect the exception in a FitNesse decision table, use `EXCEPTION:=~/pattern/` in the output cell:
 
-```cpp
-return StatementExecutor_FixtureError("something went wrong");
 ```
+|Division                       |
+|numerator|denominator|quotient?|
+|10       |2          |5        |
+|10       |0          |EXCEPTION:=~/divide by zero/|
+```
+
+The cell passes when an exception is thrown and its message matches the regex. Without a regex, `EXCEPTION:` alone passes for any exception.
 
 ---
 
@@ -210,6 +236,7 @@ In any FitNesse wiki page, set these four `define` variables before the test tab
 | `CppSlimLib` | STATIC | Full protocol/transport implementation. Links `CppSlimFixtures` publicly, so the final executable only needs to link `CppSlimLib`. |
 | `Fixtures` | STATIC | Example fixture library (Division, Count, EmployeePayRecords). Links `CppSlimFixtures` only — demonstrates the clean separation. |
 | `CppSlim` | executable | Links `CppSlimLib + Fixtures`. |
+| `fitnesse_jar` | custom | Downloads the latest `fitnesse-standalone.jar` from GitHub into `lib/`. |
 
 Typical layout for your own fixture library:
 
@@ -235,7 +262,10 @@ cppslim/
 │   └── StatementExecutor.h # Low-level fixture registration (used by macros)
 ├── src/                    # Protocol/transport implementation (CppSlimLib)
 ├── fixtures/               # Example fixtures + Fixtures.cpp registry (Fixtures target)
-└── tests/                  # GoogleTest suite (105 tests)
+├── tests/                  # GoogleTest suite (105 tests)
+├── FitNesseRoot/           # Self-contained FitNesse wiki root (CppSlimTest acceptance suite)
+├── lib/                    # Downloaded fitnesse-standalone.jar (gitignored, see fitnesse_jar target)
+└── cmake/                  # CMake helper scripts (FetchFitNesse.cmake)
 ```
 
 Only `CppFixtures.h` and `SlimFixture.h` are needed for ordinary fixture development. The other headers are available if a fixture needs to build `SlimList` structures manually (see `EmployeePayRecords.cpp`).
